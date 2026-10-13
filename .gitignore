@@ -218,3 +218,15 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# React / TypeScript
+node_modules/
+coverage/
+*.tsbuildinfo
+
+# Additional local environment files
+.env.*
+!.env.example
+
+# Personal VS Code settings
+.vscode/
