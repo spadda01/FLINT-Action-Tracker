@@ -22,5 +22,5 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src", "../unused/AddItemDialog.tsx", "../unused/FilterMenu.tsx", "../unused/PortalPopup.tsx", "../unused/StatusMenu.tsx"]
 }

@@ -1,5 +1,5 @@
-import ProjectBoardItemsReordered from './pages/ProjectBoardItemsReordered'
+import CreateTeamBoard from './pages/CreateTeamBoard'
 
 export default function App(){
-  return <ProjectBoardItemsReordered />
+  return <CreateTeamBoard />
 }
