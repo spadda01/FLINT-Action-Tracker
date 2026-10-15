@@ -7,7 +7,8 @@
 }
 .createTeamBoard {
   	width: 520px;
-  	height: 450px;
+  	box-sizing: border-box;
+  	padding: 24px;
   	position: absolute;
   	top: 50%;
   	left: 50%;
@@ -15,142 +16,114 @@
   	box-shadow: 0 8px 32px rgba(23, 50, 77, 0.2);
   	border-radius: 12px;
   	background-color: #fff;
-  	overflow: hidden;
   	text-align: left;
   	font-size: 14px;
   	color: #334155;
-  	font-family: Avenir;
+  	font-family: Avenir, sans-serif;
+  	display: flex;
+  	flex-direction: column;
+  	gap: 8px;
+}
+.header {
+  	display: flex;
+  	justify-content: space-between;
+  	align-items: center;
+  	margin-bottom: 8px;
 }
 .createTeamBoard2 {
-  	position: absolute;
-  	top: 24px;
-  	left: 24px;
   	font-size: 22px;
   	color: #17324d;
 }
 .x {
-  	position: absolute;
-  	top: 24px;
-  	left: 476px;
+  	font: inherit;
   	font-size: 24px;
   	color: #526579;
+  	background: none;
+  	border: none;
+  	cursor: pointer;
+  	padding: 0 4px;
 }
-.boardName {
-  	position: absolute;
-  	top: 80px;
-  	left: 24px;
+.label {
+  	margin-top: 8px;
 }
-.members {
-  	position: absolute;
-  	top: 168px;
-  	left: 24px;
+.textInput,
+.select {
+  	font: inherit;
+  	color: #334155;
+  	box-sizing: border-box;
+  	width: 100%;
+  	height: 40px;
+  	padding: 0 12px;
+  	background-color: #fff;
+  	border: 1px solid #dce5eb;
+  	outline: none;
 }
-.titleInput {
-  	position: absolute;
-  	top: 108px;
-  	left: 24px;
+.textInput {
   	border-radius: 6px;
-  	background-color: #fff;
-  	border: 1px solid #dce5eb;
-  	box-sizing: border-box;
-  	width: 472px;
-  	height: 40px;
 }
-.sectionInput {
-  	position: absolute;
-  	top: 196px;
-  	left: 24px;
+.select {
   	border-radius: 20px;
-  	background-color: #fff;
-  	border: 1px solid #dce5eb;
-  	box-sizing: border-box;
-  	width: 472px;
-  	height: 40px;
+  	cursor: pointer;
 }
-.sectionInput2 {
-  	position: absolute;
-  	top: 245px;
-  	left: 24px;
-  	border-radius: 20px;
-  	background-color: #fff;
-  	border: 1px solid #dce5eb;
-  	box-sizing: border-box;
-  	width: 120px;
-  	height: 40px;
+.textInput:focus,
+.select:focus {
+  	border-color: #006098;
 }
-.egDepartmentTasks {
-  	position: absolute;
-  	top: 118px;
-  	left: 36px;
+.textInput::placeholder {
   	color: #526579;
+}
+.memberRow {
+  	display: flex;
+  	align-items: center;
+  	gap: 8px;
+}
+.removeMember {
+  	font: inherit;
+  	color: #526579;
+  	background: none;
+  	border: none;
+  	cursor: pointer;
+  	font-size: 18px;
 }
 .addMembers {
-  	position: absolute;
-  	top: 254px;
-  	left: 36px;
+  	font: inherit;
   	color: #526579;
-}
-.exampleTeamGroup {
-  	position: absolute;
-  	top: 206px;
-  	left: 36px;
-}
-.egnyteFolderLink {
-  	position: absolute;
-  	top: 301px;
-  	left: 24px;
-}
-.ownersInput {
-  	position: absolute;
-  	top: 329px;
-  	left: 24px;
-  	border-radius: 6px;
+  	align-self: flex-start;
+  	width: 120px;
+  	height: 40px;
+  	border-radius: 20px;
   	background-color: #fff;
   	border: 1px solid #dce5eb;
-  	box-sizing: border-box;
-  	width: 472px;
-  	height: 40px;
+  	cursor: pointer;
 }
-.https {
-  	position: absolute;
-  	top: 339px;
-  	left: 36px;
-  	color: #526579;
+.addMembers:hover {
+  	border-color: #006098;
 }
-.cancelButtonAndSubmitItem {
-  	position: absolute;
-  	top: 387px;
-  	left: 268px;
-  	width: 228px;
+.actions {
+  	display: flex;
+  	justify-content: flex-end;
+  	gap: 16px;
+  	margin-top: 16px;
+}
+.cancel,
+.addItem {
+  	font: inherit;
   	height: 40px;
+  	cursor: pointer;
+  	border: 1px solid #dce5eb;
 }
 .cancel {
-  	position: absolute;
-  	top: 0px;
-  	left: 0px;
-  	background-color: #fff;
-  	border: 1px solid #dce5eb;
-  	box-sizing: border-box;
   	width: 104px;
-  	height: 40px;
+  	background-color: #fff;
+  	color: #334155;
 }
 .addItem {
-  	position: absolute;
-  	top: 0px;
-  	left: 120px;
-  	background-color: #006098;
   	width: 108px;
-  	height: 40px;
-}
-.cancel2 {
-  	position: absolute;
-  	top: 10px;
-  	left: 28px;
-}
-.addItem2 {
-  	position: absolute;
-  	top: 10px;
-  	left: 146px;
+  	background-color: #006098;
+  	border-color: #006098;
   	color: #fff;
 }
-
+.addItem:disabled {
+  	opacity: 0.5;
+  	cursor: not-allowed;
+}
