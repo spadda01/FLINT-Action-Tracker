@@ -6,6 +6,6 @@ Action Tracker for FLINT Design replaces weekly spreadsheets with shared project
 - Allowing for "no project" specifically
 
 #### AT-34 subtask AT-35
-- TODO:
+- The Team Create board is now visible and contains empty fields to be edited by the user.
 #### AT-34 subtask AT-36
-- TODO:
+- The Team Create board is now functional with drop downs, multiple field entries, and individual text entries.
