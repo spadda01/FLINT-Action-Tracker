@@ -1,4 +1,4 @@
-from app.interfaces import ProjectAdapter
+from app.adapters.interfaces import ProjectAdapter
 class MockProjectService(ProjectAdapter):
     def get_projects(self):
         return [

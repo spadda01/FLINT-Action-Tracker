@@ -1,5 +1,5 @@
 
-from app.interfaces import NotificationAdapter
+from app.adapters.interfaces import NotificationAdapter
 
 
 class MockNotificationService(NotificationAdapter):

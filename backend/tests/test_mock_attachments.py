@@ -1,6 +1,6 @@
 
-from app.mock_attachments import MockAttachmentService
-from app.interfaces import AttachmentAdapter
+from app.adapters.mock_attachments import MockAttachmentService
+from app.adapters.interfaces import AttachmentAdapter
 
 
 def test_attachment_implements_interface():

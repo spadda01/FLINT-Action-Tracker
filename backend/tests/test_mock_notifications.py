@@ -1,6 +1,6 @@
 
-from app.mock_notifications import MockNotificationService
-from app.interfaces import NotificationAdapter
+from app.adapters.mock_notifications import MockNotificationService
+from app.adapters.interfaces import NotificationAdapter
 
 
 def test_notification_implements_interface():

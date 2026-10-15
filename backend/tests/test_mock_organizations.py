@@ -1,6 +1,6 @@
 
-from app.mock_organizations import MockOrganizationService
-from app.mock_employees import MockEmployeeService
+from app.adapters.mock_organizations import MockOrganizationService
+from app.adapters.mock_employees import MockEmployeeService
 
 
 def test_get_organizations():

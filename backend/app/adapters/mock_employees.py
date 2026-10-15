@@ -1,4 +1,4 @@
-from app.interfaces import EmployeeAdapter
+from app.adapters.interfaces import EmployeeAdapter
 class MockEmployeeService(EmployeeAdapter):
     def get_employees(self):
         return [

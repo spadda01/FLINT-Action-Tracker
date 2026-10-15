@@ -1,5 +1,5 @@
 
-from app.mock_projects import MockProjectService
+from app.adapters.mock_projects import MockProjectService
 
 
 def test_get_projects():

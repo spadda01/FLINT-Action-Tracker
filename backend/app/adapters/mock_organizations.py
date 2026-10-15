@@ -1,4 +1,4 @@
-from app.interfaces import OrganizationAdapter
+from app.adapters.interfaces import OrganizationAdapter
 class MockOrganizationService(OrganizationAdapter):
     def get_organizations(self):
         return [

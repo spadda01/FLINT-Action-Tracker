@@ -1,5 +1,5 @@
 
-from app.interfaces import AttachmentAdapter
+from app.adapters.interfaces import AttachmentAdapter
 
 
 class MockAttachmentService(AttachmentAdapter):

@@ -1,8 +1,8 @@
 
 import pytest
 
-from app.service_factory import create_services
-from app.interfaces import (
+from app.services.service_factory import create_services
+from app.adapters.interfaces import (
     ProjectAdapter,
     EmployeeAdapter,
     OrganizationAdapter,

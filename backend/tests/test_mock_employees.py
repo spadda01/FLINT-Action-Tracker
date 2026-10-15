@@ -1,5 +1,5 @@
 
-from app.mock_employees import MockEmployeeService
+from app.adapters.mock_employees import MockEmployeeService
 
 
 def test_get_employees():
@@ -32,7 +32,7 @@ def test_employee_project_matches_mock_projects():
     service = MockEmployeeService()
     employees = service.get_employees()
 
-    from app.mock_projects import MockProjectService
+    from app.adapters.mock_projects import MockProjectService
 
     projects = MockProjectService().get_projects()
     project_ids = {project["id"] for project in projects}

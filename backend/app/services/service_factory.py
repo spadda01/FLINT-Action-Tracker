@@ -1,10 +1,10 @@
 
 from app.config import get_data_source
-from app.mock_projects import MockProjectService
-from app.mock_employees import MockEmployeeService
-from app.mock_organizations import MockOrganizationService
-from app.mock_attachments import MockAttachmentService
-from app.mock_notifications import MockNotificationService
+from app.adapters.mock_projects import MockProjectService
+from app.adapters.mock_employees import MockEmployeeService
+from app.adapters.mock_organizations import MockOrganizationService
+from app.adapters.mock_attachments import MockAttachmentService
+from app.adapters.mock_notifications import MockNotificationService
 
 
 def create_services():
