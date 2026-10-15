@@ -1,104 +1,107 @@
 #root {
-  min-height: 100vh;
+    min-height: 100vh;
 }
 
 main {
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 40px 24px;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 40px 24px;
 }
 
 header {
-  margin-bottom: 36px;
+    margin-bottom: 36px;
 }
 
 h1 {
-  margin: 0 0 12px;
-  color: #00699e;
-  font-size: 32px;
+    margin: 0 0 12px;
+    color: #00699e;
+    font-size: 32px;
 }
 
 header p {
-  margin: 0;
-  color: #526780;
-  line-height: 1.5;
+    margin: 0;
+    color: #526780;
+    line-height: 1.5;
 }
 
 section {
-  margin-bottom: 24px;
-  padding: 24px;
-  background-color: #ffffff;
-  border: 1px solid #d7e3ec;
-  border-radius: 8px;
+    margin-bottom: 24px;
+    padding: 24px;
+    background-color: #ffffff;
+    border: 1px solid #d7e3ec;
+    border-radius: 8px;
 }
 
 h2 {
-  margin: 0 0 16px;
-  color: #00699e;
-  font-size: 22px;
+    margin: 0 0 16px;
+    color: #00699e;
+    font-size: 22px;
 }
 
 section p {
-  margin: 0;
-  color: #526780;
-  line-height: 1.5;
+    margin: 0;
+    color: #526780;
+    line-height: 1.5;
 }
 
 table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
 }
 
-th,td {
-  padding: 16px 12px;
-  text-align: left;
-  border-bottom: 1px solid #d7e3ec;
-  overflow-wrap: anywhere;
+th,
+td {
+    padding: 16px 12px;
+    text-align: left;
+    border-bottom: 1px solid #d7e3ec;
+    overflow-wrap: anywhere;
 }
 
 th {
-  background-color: #e5f0f5;
-  font-size: 14px;
-  font-weight: 600;
+    background-color: #e5f0f5;
+    font-size: 14px;
+    font-weight: 600;
 }
 
 th:first-child {
-  width: 55%;
+    width: 55%;
 }
 
 tbody tr:last-child td {
-  border-bottom: none;
+    border-bottom: none;
 }
 
 .board-name {
-  font-weight: 600;
+    font-weight: 600;
 }
 
 @media (max-width: 600px) {
-  th, td {
-    padding: 12px 8px;
-  }
+
+    th,
+    td {
+        padding: 12px 8px;
+    }
 }
 
 .board-link {
-  padding: 4px 0;
-  border: none;
-  background: transparent;
-  color: #00699e;
-  font-weight: 600;
-  text-align: left;
-  overflow-wrap: anywhere;
-  cursor: pointer;
+    padding: 4px 0;
+    border: none;
+    background: transparent;
+    color: #00699e;
+    font-weight: 600;
+    text-align: left;
+    overflow-wrap: anywhere;
+    cursor: pointer;
 }
 
 .board-link:hover {
-  text-decoration: underline;
+    text-decoration: underline;
 }
 
 .board-link:focus-visible {
-  outline: 3px solid #00699e;
-  outline-offset: 4px;
-  border-radius: 2px;
+    outline: 3px solid #00699e;
+    outline-offset: 4px;
+    border-radius: 2px;
 }
