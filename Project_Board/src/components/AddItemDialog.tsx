@@ -1,17 +1,18 @@
-import { FunctionComponent } from 'react';
+import type { FunctionComponent } from 'react';
 import styles from './AddItemDialog.module.css';
 
 export type AddItemDialogType = {
   	className?: string;
+	onClose?: () => void;
 }
 
 
 
-const AddItemDialog: FunctionComponent<AddItemDialogType> = ({ className="" }) => {
+const AddItemDialog: FunctionComponent<AddItemDialogType> = ({ className="", onClose }) => {
   	return (
     		<div className={[styles.addItemDialog, className].join(' ')}>
       			<div className={styles.addActionItem}>Add action item</div>
-      			<div className={styles.x}>x</div>
+      			<div className={styles.x} onClick={onClose} style={{ cursor: 'pointer' }}>x</div>
       			<div className={styles.itemTitle}>Item title *</div>
       			<div className={styles.section}>Section</div>
       			<div className={styles.titleInput} />
@@ -37,9 +38,9 @@ const AddItemDialog: FunctionComponent<AddItemDialogType> = ({ className="" }) =
       			<div className={styles.attentionCheckbox} />
       			<div className={styles.attentionThisWeek}>Attention this week</div>
       			<div className={styles.cancelButtonAndSubmitItem}>
-        				<div className={styles.cancel} />
+        				<div className={styles.cancel} onClick={onClose} style={{ cursor: 'pointer' }} />
         				<div className={styles.addItem} />
-        				<div className={styles.cancel2}>Cancel</div>
+        				<div className={styles.cancel2} onClick={onClose} style={{ cursor: 'pointer' }}>Cancel</div>
         				<div className={styles.addItem2}>Add item</div>
       			</div>
     		</div>);

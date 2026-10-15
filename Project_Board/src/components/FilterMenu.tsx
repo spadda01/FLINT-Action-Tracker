@@ -1,17 +1,20 @@
-import { FunctionComponent, useCallback } from 'react';
+import type { FunctionComponent } from 'react';
+import { useCallback } from 'react';
 import styles from './FilterMenu.module.css';
 
 export type FilterMenuType = {
   	className?: string;
+	onClose?: () => void;
 }
 
 
 
-const FilterMenu: FunctionComponent<FilterMenuType> = ({ className="" }) => {
+const FilterMenu: FunctionComponent<FilterMenuType> = ({ className="", onClose }) => {
   	
   	const onClearButtonContainerClick = useCallback(() => {
-    		// Add your code here
-  	}, []);
+    		// Add your filter logic here, then close the menu
+    		onClose?.();
+  	}, [onClose]);
   	
   	return (
     		<div className={[styles.filterMenu, className].join(' ')}>

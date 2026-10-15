@@ -1,4 +1,5 @@
-import { CSSProperties, RefObject, FunctionComponent, ReactNode, useMemo, useCallback, useState, useRef, useEffect} from "react";
+import type { CSSProperties, RefObject, FunctionComponent, ReactNode } from "react";
+import { useMemo, useCallback, useState, useRef, useEffect } from "react";
 
 import { createPortal } from "react-dom";
 import styles from './PortalPopup.module.css';

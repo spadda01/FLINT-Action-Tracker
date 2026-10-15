@@ -1,17 +1,20 @@
-import { FunctionComponent, useCallback } from 'react';
+import type { FunctionComponent } from 'react';
+import { useCallback } from 'react';
 import styles from './StatusMenu.module.css';
 
 export type StatusMenuType = {
   	className?: string;
+	onClose?: () => void;
 }
 
 
 
-const StatusMenu: FunctionComponent<StatusMenuType> = ({ className="" }) => {
+const StatusMenu: FunctionComponent<StatusMenuType> = ({ className="", onClose }) => {
   	
   	const onStatusMenuContainerClick = useCallback(() => {
-    		// Add your code here
-  	}, []);
+    		// Add your status-change logic here, then close the menu
+    		onClose?.();
+  	}, [onClose]);
   	
   	return (
     		<div className={[styles.statusMenu, className].join(' ')} onClick={onStatusMenuContainerClick}>

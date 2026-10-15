@@ -1,4 +1,5 @@
-import { FunctionComponent, useState, useRef, useCallback } from 'react';
+import type { FunctionComponent } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import FilterMenu from "../components/FilterMenu";
 import PortalPopup from "../components/PortalPopup";
 import AddItemDialog from "../components/AddItemDialog";
