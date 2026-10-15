@@ -1,0 +1,49 @@
+.statusMenu {
+  	width: 184px;
+  	height: 264px;
+  	position: relative;
+  	border-radius: 6px;
+  	background-color: #fff;
+  	border: 1px solid #dce5eb;
+  	box-sizing: border-box;
+  	overflow: hidden;
+  	cursor: pointer;
+  	max-width: 100%;
+  	max-height: 100%;
+  	text-align: left;
+  	font-size: 14px;
+  	color: #334155;
+  	font-family: Avenir;
+}
+.open {
+  	position: absolute;
+  	top: 16px;
+  	left: 16px;
+}
+.notStarted {
+  	position: absolute;
+  	top: 56px;
+  	left: 16px;
+}
+.inProgress {
+  	position: absolute;
+  	top: 96px;
+  	left: 16px;
+  	color: #006098;
+}
+.scheduled {
+  	position: absolute;
+  	top: 136px;
+  	left: 16px;
+}
+.outstanding {
+  	position: absolute;
+  	top: 216px;
+  	left: 16px;
+}
+.complete {
+  	position: absolute;
+  	top: 176px;
+  	left: 16px;
+}
+
