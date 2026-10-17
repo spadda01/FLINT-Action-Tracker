@@ -14,6 +14,12 @@ class EmployeeAdapter(ABC):
         pass
 
 
+class GroupAdapter(ABC):
+    @abstractmethod
+    def get_groups(self):
+        pass
+
+
 class OrganizationAdapter(ABC):
     @abstractmethod
     def get_organizations(self):
