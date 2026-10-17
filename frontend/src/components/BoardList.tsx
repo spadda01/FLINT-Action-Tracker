@@ -9,7 +9,7 @@ type BoardListProps = {
 
 function BoardList({ title, headingId, boards, onSelectBoard, }: BoardListProps) {
   return (
-    <section aria-labelledby={headingId}>
+    <section className="board-list" aria-labelledby={headingId}>
       <h2 id={headingId}>{title}</h2>
 
       {boards.length === 0 ? (

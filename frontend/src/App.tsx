@@ -53,7 +53,7 @@ function App() {
   )
 
   return (
-    <main>
+    <main className="boards-page">
       <header>
         <h1>FLINT Action Tracker</h1>
         <p>Find and open your project and team boards.</p>
@@ -62,7 +62,7 @@ function App() {
       {isLoading ? (
         <p role="status">Loading your boards…</p>
       ) : error ? (
-        <section aria-label="Board loading error">
+        <section className="boards-error" aria-label="Board loading error">
           <p role="alert">{error}</p>
           <button
             type="button"
