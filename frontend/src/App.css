@@ -25,6 +25,58 @@ header p {
     line-height: 1.5;
 }
 
+.board-search {
+    margin-bottom: 24px;
+}
+
+.board-search label {
+    display: block;
+    margin-bottom: 8px;
+    color: #263b50;
+    font-weight: 600;
+}
+
+.board-search-controls {
+    display: flex;
+    gap: 12px;
+}
+
+.board-search input {
+    min-width: 0;
+    flex: 1;
+    padding: 10px 12px;
+    border: 1px solid #9aafbf;
+    border-radius: 4px;
+    font: inherit;
+}
+
+.board-search input:focus-visible,
+.board-search button:focus-visible {
+    outline: 3px solid #00699e;
+    outline-offset: 2px;
+}
+
+.board-search button {
+    padding: 10px 16px;
+    border: 1px solid #00699e;
+    border-radius: 4px;
+    background: #ffffff;
+    color: #00699e;
+    font: inherit;
+    cursor: pointer;
+}
+
+.board-search button:disabled {
+    border-color: #9aafbf;
+    color: #526780;
+    cursor: not-allowed;
+}
+
+.board-search-empty {
+    margin: 0 0 24px;
+    color: #526780;
+}
+
 section {
     margin-bottom: 24px;
     padding: 24px;
@@ -82,6 +134,10 @@ tbody tr:last-child td {
     th,
     td {
         padding: 12px 8px;
+    }
+
+    .board-search-controls {
+        flex-direction: column;
     }
 }
 
