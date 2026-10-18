@@ -33,3 +33,19 @@ def get_boards(
     repository: BoardRepository = Depends(get_board_repository)) -> list[BoardSummary]:
     # filter the records before any board data leaves the server
     return list_accessible_boards(user_id, repository)
+
+
+@app.get("/api/me")
+def get_me(user_id: str = Depends(get_current_user_id)) -> dict[str, str]:
+    # gives the frontend the identity for recent history that is selected by the server
+    return {"id": user_id}
+
+
+@app.get("/api/boards/{board_id}", response_model=BoardSummary)
+def get_board(board_id: str, user_id: str = Depends(get_current_user_id), repository: BoardRepository = Depends(get_board_repository)) -> BoardSummary:
+    #check access again when opening a board, including through a saved URL.
+    for board in list_accessible_boards(user_id, repository):
+        if board.id == board_id:
+            return board
+
+    raise HTTPException(status_code=404, detail="Board not found.")

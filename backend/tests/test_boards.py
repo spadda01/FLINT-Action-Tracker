@@ -49,3 +49,39 @@ def test_mock_access_is_disabled_by_default(client, monkeypatch):
     monkeypatch.delenv("APP_MODE", raising=False)
     response = client.get("/api/boards")
     assert response.status_code == 503
+
+# direct board urls must enforce the same rules as the board list
+@pytest.mark.parametrize(
+    "board_id",
+    ["project-archived", "team-restricted", "does-not-exist"],
+)
+
+def test_direct_board_urls_do_not_bypass_access(client, board_id):
+    response = client.get(f"/api/boards/{board_id}")
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Board not found."}
+
+def test_accessible_board_can_be_opened(client):
+    response = client.get("/api/boards/project-2")
+    assert response.status_code == 200
+    assert response.json() == {"id": "project-2", "name": "Sample Office Renovation","type": "Project", "openItemCount": 12}
+
+#  values supplied by browser cannot change the server-selected mock identity
+def test_current_identity_comes_from_server_not_request(client):
+    response = client.get("/api/me?user_id=user-2", headers={"X-User-Id": "user-2"})
+    assert response.status_code == 200
+    assert response.json() == {"id": "user-1"}
+    restricted = client.get("/api/boards/team-restricted", headers={"X-User-Id": "user-2"})
+    assert restricted.status_code == 404
+
+def test_access_changes_apply_on_next_board_request(client, monkeypatch):
+    assert client.get("/api/boards/project-1").status_code == 200
+    monkeypatch.setenv("MOCK_USER_ID", "user-2")
+    assert client.get("/api/boards/project-1").status_code == 404
+    assert client.get("/api/me").json() == {"id": "user-2"}
+
+
+@pytest.mark.parametrize("path", ["/api/me", "/api/boards/project-1"])
+def test_all_new_endpoints_require_explicit_mock_mode(client, monkeypatch, path):
+    monkeypatch.delenv("APP_MODE", raising=False)
+    assert client.get(path).status_code == 503
