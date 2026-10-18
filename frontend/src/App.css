@@ -121,3 +121,28 @@
 .board-list tbody tr:hover {
   background-color: #f7f9fa;
 }
+
+.boards-retry {
+  margin-top: 16px;
+  min-height: 44px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 11px;
+  background-color: #00699e;
+  color: #ffffff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.boards-retry:hover {
+  background-color: #005580;
+}
+
+.boards-retry:focus-visible {
+  outline: 3px solid #00699e;
+  outline-offset: 4px;
+}
+
+.boards-retry:active {
+  background-color: #004466;
+}

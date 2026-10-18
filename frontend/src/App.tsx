@@ -64,10 +64,7 @@ function App() {
       ) : error ? (
         <section className="boards-error" aria-label="Board loading error">
           <p role="alert">{error}</p>
-          <button
-            type="button"
-            onClick={() => setLoadAttempt((attempt) => attempt + 1)}
-          >
+          <button type="button" className = "boards-retry" onClick={() => setLoadAttempt((attempt) => attempt + 1)}>
             Retry
           </button>
         </section>
