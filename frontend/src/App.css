@@ -15,7 +15,7 @@
 
 .boards-page > header h1 {
   margin: 0 0 12px;
-  color: #00699e;
+  color: #1C2329;
   font-size: 32px;
 }
 
@@ -25,18 +25,18 @@
   line-height: 1.5;
 }
 
-.board-list,
-.boards-error {
+.board-list, .boards-error {
   margin-bottom: 24px;
   padding: 24px;
   background-color: #ffffff;
-  border: 1px solid #d7e3ec;
-  border-radius: 8px;
+  border: none;
+  border-radius: 14px;
+  box-shadow: 0 2px 4px rgba(20, 30, 40, 0.04), 0 8px 24px rgba(20, 30, 40, 0.08);
 }
 
 .board-list > h2 {
   margin: 0 0 16px;
-  color: #00699e;
+  color: #1C2329;
   font-size: 22px;
 }
 
@@ -62,9 +62,12 @@
 }
 
 .board-list th {
-  background-color: #e5f0f5;
-  font-size: 14px;
-  font-weight: 600;
+  background-color: #f3f5f7;
+  color: #52616d;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .board-list th:first-child {
@@ -104,4 +107,17 @@
     .board-list th, .board-list td {
         padding: 12px 8px;
     }
+}
+
+.board-list tbody tr {
+  height: 48px;
+}
+
+.board-list td {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.board-list tbody tr:hover {
+  background-color: #f7f9fa;
 }
