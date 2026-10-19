@@ -1,6 +1,6 @@
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class BoardMemberInput(BaseModel):
@@ -33,3 +33,5 @@ class Board(BaseModel):
     members: List[BoardMember]
     egnyteFolderUrl: str
     createdAt: str
+    # Newly created boards have no action items yet
+    openItemCount: int = Field(default=0, ge=0)

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
 from app.db.board_repository import InMemoryBoardRepository
@@ -31,14 +31,3 @@ def create_team_board(
     except BoardValidationError as error:
         # {"errors": {field: message}} lets the form show each message beside its field.
         return JSONResponse(status_code=422, content={"errors": error.errors})
-
-
-@router.get("/boards/{board_id}", response_model=Board)
-def get_board(
-    board_id: str,
-    service: BoardService = Depends(get_board_service),
-):
-    board = service.get_board(board_id)
-    if board is None:
-        raise HTTPException(status_code=404, detail="Board not found")
-    return board

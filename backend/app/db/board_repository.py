@@ -10,9 +10,12 @@ class BoardRepository(ABC):
     def get_board(self, board_id):
         pass
 
+    @abstractmethod
+    def list_boards(self):
+        pass
 
-# Keeps boards in memory until the PostgreSQL database is set up.
-# Data is lost when the server restarts.
+
+# Temporary storage; boards are lost when the server restarts.
 class InMemoryBoardRepository(BoardRepository):
     def __init__(self):
         self.boards = {}
@@ -29,3 +32,7 @@ class InMemoryBoardRepository(BoardRepository):
 
     def get_board(self, board_id):
         return self.boards.get(board_id)
+
+    # Return saved boards so the API can filter them by access.
+    def list_boards(self):
+        return list(self.boards.values())

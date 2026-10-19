@@ -10,14 +10,25 @@ from app.services.board_service import BoardService
 
 
 @pytest.fixture
-def client():
-    # A fresh in-memory store per test so saved boards don't leak between tests.
+def client(monkeypatch):
+    # Enable mock mode and select a member of the test boards.
+    monkeypatch.setenv("APP_MODE", "mock")
+    monkeypatch.setenv("MOCK_USER_ID", "user-2")
+
+    # Use a fresh board repository for each test.
     service = BoardService(
-        InMemoryBoardRepository(), MockEmployeeService(), MockGroupService()
+        InMemoryBoardRepository(),
+        MockEmployeeService(),
+        MockGroupService(),
     )
+
     app.dependency_overrides[get_board_service] = lambda: service
-    yield TestClient(app)
-    app.dependency_overrides.clear()
+
+    try:
+        with TestClient(app) as test_client:
+            yield test_client
+    finally:
+        app.dependency_overrides.clear()
 
 
 def valid_board(**overrides):

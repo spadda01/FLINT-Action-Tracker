@@ -1,4 +1,5 @@
-pytest>=8.4,<9
 fastapi>=0.128,<1
 uvicorn>=0.39,<1
+pydantic>=2.9,<3
+pytest>=8.4,<9
 httpx>=0.28,<1
