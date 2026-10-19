@@ -49,3 +49,14 @@ def test_multiple_attachments():
     assert service.get_attachment(first)["content"] == "First"
     assert service.get_attachment(second)["content"] == "Second"
 
+import pytest
+
+
+def test_save_attachment_failure():
+    service = MockAttachmentService()
+
+    with pytest.raises(ValueError, match="Filename is required"):
+        service.save_attachment("", "test content")
+
+    assert service.attachments == {}
+    

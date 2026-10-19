@@ -1,4 +1,3 @@
-
 from app.adapters.interfaces import AttachmentAdapter
 
 
@@ -8,6 +7,9 @@ class MockAttachmentService(AttachmentAdapter):
         self.next_id = 1
 
     def save_attachment(self, filename, content):
+        if not filename or not filename.strip():
+            raise ValueError("Filename is required")
+
         attachment_id = "ATT" + str(self.next_id)
         self.next_id += 1
 
@@ -21,4 +23,4 @@ class MockAttachmentService(AttachmentAdapter):
 
     def get_attachment(self, attachment_id):
         return self.attachments.get(attachment_id)
-
+    

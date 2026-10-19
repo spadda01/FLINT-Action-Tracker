@@ -35,3 +35,12 @@ def test_get_organizations():
     organizations = response.json()
     assert len(organizations) == 3
     assert organizations[0]["id"] == "ORG001"
+
+def test_unauthorized_access():
+    response = client.get(
+        "/api/projects",
+        headers={"X-Mock-Role": "unauthorized"}
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Access denied"
