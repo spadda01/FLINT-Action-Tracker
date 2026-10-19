@@ -8,6 +8,7 @@ import BoardPage from './components/BoardPage'
 import { searchBoards } from './components/board_search'
 import { openBoard } from './components/navigation'
 import { moveBoardToFront } from './components/recently_opened_ordering'
+import CreateProjectBoard from './pages/CreateProjectBoard'
 
 // read the selected board from a URL such as #/boards/project-1.
 function boardIdFromLocation(): string | null {
@@ -30,10 +31,16 @@ function App() {
     const [userId, setUserId] = useState('')
     const [recentHistory, setRecentHistory] = useState<string[]>([])
     const [boardId, setBoardId] = useState(boardIdFromLocation)
+    const [isCreatingProject, setIsCreatingProject] = useState(
+        () => window.location.hash === '#/create-project-board',
+    )
 
     // keep the displayed board in sync with navigation and browser back/forward
     useEffect(() => {
-        const syncRoute = () => setBoardId(boardIdFromLocation())
+        const syncRoute = () => {
+            setBoardId(boardIdFromLocation())
+            setIsCreatingProject(window.location.hash === '#/create-project-board',)
+        }
         window.addEventListener('hashchange', syncRoute)
         return () => { window.removeEventListener('hashchange', syncRoute) }
     }, [])
@@ -99,12 +106,28 @@ function App() {
         searchText.trim() !== '' &&
         projectBoards.length + teamBoards.length === 0
 
+    // keep the project-creation screen accessible from the dashboard
+    if (isCreatingProject) {
+        return (
+            <main className="boards-page">
+                <a className="boards-back" href="#/">
+                    Back to boards
+                </a>
+
+                <CreateProjectBoard />
+            </main>
+        )
+    }
+
 
     return (
         <main className="boards-page">
             <header>
                 <h1>FLINT Action Tracker</h1>
                 <p>Find and open your project and team boards.</p>
+                <a className="boards-back" href="#/create-project-board">
+                    Create project board
+                </a>
             </header>
 
             {isLoading ? (
