@@ -1,0 +1,99 @@
+.filterMenu {
+  	width: 280px;
+  	height: 200px;
+  	position: relative;
+  	border-radius: 8px;
+  	background-color: #fff;
+  	border: 1px solid #dce5eb;
+  	box-sizing: border-box;
+  	overflow: hidden;
+  	max-width: 100%;
+  	max-height: 100%;
+  	text-align: left;
+  	font-size: 12px;
+  	color: #334155;
+  	font-family: Avenir;
+}
+.filterItems {
+  	position: absolute;
+  	top: 16px;
+  	left: 16px;
+  	font-size: 16px;
+  	color: #17324d;
+}
+.showItemsFlagged {
+  	position: absolute;
+  	top: 100px;
+  	left: 16px;
+  	color: #526579;
+}
+.attentionFilterToggle {
+  	position: absolute;
+  	top: 64px;
+  	left: 16px;
+  	width: 160px;
+  	height: 22px;
+  	font-size: 14px;
+}
+.attentionItemsOnly {
+  	position: absolute;
+  	top: 0px;
+  	left: 32px;
+}
+.checkbox {
+  	position: absolute;
+  	top: 0px;
+  	left: 0px;
+  	border-radius: 3px;
+  	background-color: #fff;
+  	border: 1px solid #dce5eb;
+  	box-sizing: border-box;
+  	width: 20px;
+  	height: 20px;
+}
+.clearButton {
+  	position: absolute;
+  	top: 144px;
+  	left: 16px;
+  	width: 104px;
+  	height: 40px;
+  	cursor: pointer;
+}
+.clear {
+  	position: absolute;
+  	top: 0px;
+  	left: 0px;
+  	background-color: #fff;
+  	border: 1px solid #dce5eb;
+  	box-sizing: border-box;
+  	width: 104px;
+  	height: 40px;
+}
+.clear2 {
+  	position: absolute;
+  	top: 10px;
+  	left: 34px;
+}
+.applyButton {
+  	position: absolute;
+  	top: 144px;
+  	left: 136px;
+  	width: 128px;
+  	height: 40px;
+  	cursor: pointer;
+  	color: #fff;
+}
+.apply {
+  	position: absolute;
+  	top: 0px;
+  	left: 0px;
+  	background-color: #006098;
+  	width: 128px;
+  	height: 40px;
+}
+.apply2 {
+  	position: absolute;
+  	top: 10px;
+  	left: 46px;
+}
+

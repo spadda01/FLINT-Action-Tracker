@@ -311,121 +311,121 @@ test('shows an empty state in both groups when no boards are available', async (
 })
 
 test('a board denied after listing does not enter history, and Retry recovers', async () => {
-  let denyBoard = true
+    let denyBoard = true
 
-  vi.mocked(fetch).mockImplementation(async (input) => {
-    const path = String(input)
+    vi.mocked(fetch).mockImplementation(async (input) => {
+        const path = String(input)
 
-    if (path === '/api/me') {
-      return json({ id: 'user-1' })
-    }
+        if (path === '/api/me') {
+            return json({ id: 'user-1' })
+        }
 
-    if (path === '/api/boards') {
-      return json(boards)
-    }
+        if (path === '/api/boards') {
+            return json(boards)
+        }
 
-    if (path === '/api/boards/project-1' && !denyBoard) {
-      return json(boards[0])
-    }
+        if (path === '/api/boards/project-1' && !denyBoard) {
+            return json(boards[0])
+        }
 
-    return json({}, 404)
-  })
+        return json({}, 404)
+    })
 
-  const user = userEvent.setup()
-  render(<App />)
+    const user = userEvent.setup()
+    render(<App />)
 
-  await user.click(
-    await screen.findByRole('button', { name: 'Sample Project' }),
-  )
-  await screen.findByRole('alert')
+    await user.click(
+        await screen.findByRole('button', { name: 'Sample Project' }),
+    )
+    await screen.findByRole('alert')
 
-  expect(
-    JSON.parse(localStorage.getItem('flint.recentBoards.user-1') ?? '[]'),
-  ).toEqual([])
-
-  denyBoard = false
-  await user.click(screen.getByRole('button', { name: 'Retry' }))
-
-  await screen.findByRole('heading', { name: 'Sample Project' })
-
-  await waitFor(() => {
     expect(
-      JSON.parse(localStorage.getItem('flint.recentBoards.user-1') ?? '[]'),
-    ).toEqual(['project-1'])
-  })
+        JSON.parse(localStorage.getItem('flint.recentBoards.user-1') ?? '[]'),
+    ).toEqual([])
+
+    denyBoard = false
+    await user.click(screen.getByRole('button', { name: 'Retry' }))
+
+    await screen.findByRole('heading', { name: 'Sample Project' })
+
+    await waitFor(() => {
+        expect(
+            JSON.parse(localStorage.getItem('flint.recentBoards.user-1') ?? '[]'),
+        ).toEqual(['project-1'])
+    })
 })
 
 test('blocked browser storage does not prevent loading or searching', async () => {
-  vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
-    throw new Error('Storage blocked')
-  })
-  vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-    throw new Error('Storage blocked')
-  })
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+        throw new Error('Storage blocked')
+    })
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new Error('Storage blocked')
+    })
 
-  const user = userEvent.setup()
-  render(<App />)
+    const user = userEvent.setup()
+    render(<App />)
 
-  const input = await screen.findByRole('searchbox')
-  await user.type(input, 'Office')
+    const input = await screen.findByRole('searchbox')
+    await user.type(input, 'Office')
 
-  expect(
-    screen.getByRole('button', { name: 'Sample Office Renovation' }),
-  ).toBeTruthy()
+    expect(
+        screen.getByRole('button', { name: 'Sample Office Renovation' }),
+    ).toBeTruthy()
 })
 
 test('long board names remain intact and keyboard selectable', async () => {
-  const longName = 'Sample construction coordination project '.repeat(8).trim()
-  const board: Board = { ...boards[0], name: longName }
-  const onSelect = vi.fn()
-  const user = userEvent.setup()
+    const longName = 'Sample construction coordination project '.repeat(8).trim()
+    const board: Board = { ...boards[0], name: longName }
+    const onSelect = vi.fn()
+    const user = userEvent.setup()
 
-  render(
-    <BoardList
-      title="Project Boards"
-      headingId="long-name-heading"
-      boards={[board]}
-      onSelectBoard={onSelect}
-    />,
-  )
+    render(
+        <BoardList
+            title="Project Boards"
+            headingId="long-name-heading"
+            boards={[board]}
+            onSelectBoard={onSelect}
+        />,
+    )
 
-  const button = screen.getByRole('button', { name: longName })
-  expect(button.textContent).toBe(longName)
+    const button = screen.getByRole('button', { name: longName })
+    expect(button.textContent).toBe(longName)
 
-  button.focus()
-  await user.keyboard('{Enter}')
+    button.focus()
+    await user.keyboard('{Enter}')
 
-  expect(onSelect).toHaveBeenCalledWith(board)
-  // Visual wrapping is checked separately in the browser.
+    expect(onSelect).toHaveBeenCalledWith(board)
+    // Visual wrapping is checked separately in the browser.
 })
 
 test('search orders accessible results without changing the source list', () => {
-  const result = searchBoards(
-    boards,
-    '',
-    ['restricted', 'project-2', 'team-1'],
-  )
+    const result = searchBoards(
+        boards,
+        '',
+        ['restricted', 'project-2', 'team-1'],
+    )
 
-  expect(result.Project.map((board) => board.id)).toEqual([
-    'project-2',
-    'project-1',
-  ])
-  expect(result.Team.map((board) => board.id)).toEqual(['team-1'])
-  expect(boards.map((board) => board.id)).toEqual([
-    'project-1',
-    'project-2',
-    'team-1',
-  ])
+    expect(result.Project.map((board) => board.id)).toEqual([
+        'project-2',
+        'project-1',
+    ])
+    expect(result.Team.map((board) => board.id)).toEqual(['team-1'])
+    expect(boards.map((board) => board.id)).toEqual([
+        'project-1',
+        'project-2',
+        'team-1',
+    ])
 })
 
 test('navigation refuses inaccessible IDs without changing history', () => {
-  const history = ['project-1']
-  const navigate = vi.fn()
+    const history = ['project-1']
+    const navigate = vi.fn()
 
-  expect(
-    openBoard('restricted', boards, history, navigate),
-  ).toBe(false)
+    expect(
+        openBoard('restricted', boards, history, navigate),
+    ).toBe(false)
 
-  expect(navigate).not.toHaveBeenCalled()
-  expect(history).toEqual(['project-1'])
+    expect(navigate).not.toHaveBeenCalled()
+    expect(history).toEqual(['project-1'])
 })

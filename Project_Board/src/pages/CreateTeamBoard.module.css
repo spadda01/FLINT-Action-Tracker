@@ -1,0 +1,129 @@
+.page {
+  	width: 1440px;
+  	height: 1024px;
+  	background-color: #fff;
+  	position: relative;
+  	overflow: hidden;
+}
+.createTeamBoard {
+  	width: 520px;
+  	box-sizing: border-box;
+  	padding: 24px;
+  	position: absolute;
+  	top: 50%;
+  	left: 50%;
+  	transform: translate(-50%, -50%);
+  	box-shadow: 0 8px 32px rgba(23, 50, 77, 0.2);
+  	border-radius: 12px;
+  	background-color: #fff;
+  	text-align: left;
+  	font-size: 14px;
+  	color: #334155;
+  	font-family: Avenir, sans-serif;
+  	display: flex;
+  	flex-direction: column;
+  	gap: 8px;
+}
+.header {
+  	display: flex;
+  	justify-content: space-between;
+  	align-items: center;
+  	margin-bottom: 8px;
+}
+.createTeamBoard2 {
+  	font-size: 22px;
+  	color: #17324d;
+}
+.x {
+  	font: inherit;
+  	font-size: 24px;
+  	color: #526579;
+  	background: none;
+  	border: none;
+  	cursor: pointer;
+  	padding: 0 4px;
+}
+.label {
+  	margin-top: 8px;
+}
+.textInput,
+.select {
+  	font: inherit;
+  	color: #334155;
+  	box-sizing: border-box;
+  	width: 100%;
+  	height: 40px;
+  	padding: 0 12px;
+  	background-color: #fff;
+  	border: 1px solid #dce5eb;
+  	outline: none;
+}
+.textInput {
+  	border-radius: 6px;
+}
+.select {
+  	border-radius: 20px;
+  	cursor: pointer;
+}
+.textInput:focus,
+.select:focus {
+  	border-color: #006098;
+}
+.textInput::placeholder {
+  	color: #526579;
+}
+.memberRow {
+  	display: flex;
+  	align-items: center;
+  	gap: 8px;
+}
+.removeMember {
+  	font: inherit;
+  	color: #526579;
+  	background: none;
+  	border: none;
+  	cursor: pointer;
+  	font-size: 18px;
+}
+.addMembers {
+  	font: inherit;
+  	color: #526579;
+  	align-self: flex-start;
+  	width: 120px;
+  	height: 40px;
+  	border-radius: 20px;
+  	background-color: #fff;
+  	border: 1px solid #dce5eb;
+  	cursor: pointer;
+}
+.addMembers:hover {
+  	border-color: #006098;
+}
+.actions {
+  	display: flex;
+  	justify-content: flex-end;
+  	gap: 16px;
+  	margin-top: 16px;
+}
+.cancel,
+.addItem {
+  	font: inherit;
+  	height: 40px;
+  	cursor: pointer;
+  	border: 1px solid #dce5eb;
+}
+.cancel {
+  	width: 104px;
+  	background-color: #fff;
+  	color: #334155;
+}
+.addItem {
+  	width: 108px;
+  	background-color: #006098;
+  	border-color: #006098;
+  	color: #fff;
+}
+.addItem:disabled {
+  	opacity: 0.5;
+  	cursor: not-allowed;
+}
