@@ -231,3 +231,128 @@
 #opened-board-heading {
     overflow-wrap: anywhere;
 }
+
+/* action items table: flint's updated design*/
+.action-items {
+    margin-top: 24px;
+}
+
+.action-items-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.action-items-table th {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    text-align: left;
+    padding: 12px;
+    color: #465568;
+}
+
+.action-items-table td {
+    padding: 12px;
+    height: 48px;
+    border-bottom: 1px solid #eef1f3;
+}
+
+/* override the generic board styles for the action items table*/
+.board-list .action-items-table {
+    table-layout: auto;
+}
+
+.board-list .action-items-table th {
+    background-color: #eef1f3;
+    width: auto;
+}
+
+.board-list .action-items-table td {
+    padding: 12px;
+}
+
+/* display priority as a colored dot beside its label */
+.priority {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.priority-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background-color: currentColor;
+}
+
+.priority-high {
+    color: #b42318;
+}
+
+.priority-medium {
+    color: #946200;
+}
+
+.priority-low {
+    color: #52616d;
+}
+
+/* status labels using the flint inspired color tones */
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.status-not-started {
+    background-color: #e9edf0;
+    color: #344054;
+}
+
+.status-in-progress {
+    background-color: #e2f0fa;
+    color: #006098;
+}
+
+.status-scheduled {
+    background-color: #fff3d6;
+    color: #805400;
+}
+
+.status-outstanding {
+    background-color: #fce8e6;
+    color: #b42318;
+}
+
+.status-complete {
+    background-color: #e8f5dc;
+    color: #356b12;
+}
+
+/* highlight the action items that require attention */
+.attention-flag {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background-color: #fff3d6;
+    color: #946200;
+    font-size: 18px;
+}
+
+.attention-none {
+    color: #98a2b3;
+}
+
+/* keep calendar dates compact and easy to scan */
+.hard-date {
+    font-family: monospace;
+    white-space: nowrap;
+}
