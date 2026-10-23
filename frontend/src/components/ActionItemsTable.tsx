@@ -1,9 +1,15 @@
+// store each of the owner's name and whether they work outside flint
+type ActionOwner = {
+    name: string
+    isExternal: boolean
+}
+
 
 type ActionItem = {
     id: number
     priority: string
     title: string
-    owners: string[]
+    owners: ActionOwner[]
     target: string
     hardDate: string | null
     status: string
@@ -16,7 +22,10 @@ const sampleItems: ActionItem[] = [
         id: 1,
         priority: 'High',
         title: 'Review construction drawings',
-        owners: ['Austin', 'Sarah'],
+        owners: [
+            { name: 'Austin', isExternal: false },
+            { name: 'Sarah', isExternal: true },
+        ],
         target: 'Before next meeting',
         hardDate: '2026-10-30',
         status: 'In Progress',
@@ -26,7 +35,7 @@ const sampleItems: ActionItem[] = [
         id: 2,
         priority: 'Medium',
         title: 'Confirm material delivery',
-        owners: ['James'],
+        owners: [{ name: 'James', isExternal: false }],
         target: 'ASAP',
         hardDate: null,
         status: 'Not Started',
@@ -53,8 +62,8 @@ function ActionItemsTable() {
     return (
         <section className="action-items">
             <h3>Action Items</h3>
-
-            <table className="action-items-table">
+            <div style={{ overflowX: "auto", width: "100%" }}>
+            <table className="action-items-table" style={{ minWidth: "1000px", width: "100%" }}>
                 <thead>
                     <tr>
                         <th>Priority</th>
@@ -78,7 +87,19 @@ function ActionItemsTable() {
                                 </span>
                             </td>
                             <td>{item.title}</td>
-                            <td>{item.owners.join(', ')}</td>
+                            <td>
+                                <div className="action-owners">
+                                    {/* show each owner and label the external participants*/}
+                                    {item.owners.map((owner, index) => (
+                                        <span className="action-owner" key={index}>
+                                            {owner.name}
+                                            {owner.isExternal && (
+                                                <span className="external-tag">External</span>
+                                            )}
+                                        </span>
+                                    ))}
+                                </div>
+                            </td>
                             <td>{item.target}</td>
                             <td className="hard-date">
                                 {formatHardDate(item.hardDate)}
@@ -103,7 +124,8 @@ function ActionItemsTable() {
                     ))}
                 </tbody>
             </table>
-        </section>
+        </div>
+        </section >
     )
 }
 

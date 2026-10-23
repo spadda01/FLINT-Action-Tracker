@@ -356,3 +356,25 @@
     font-family: monospace;
     white-space: nowrap;
 }
+
+/* display the owners with a optional external party label */
+.action-owners {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.action-owner {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+}
+
+.external-tag {
+    padding: 2px 6px;
+    border-radius: 6px;
+    background-color: #eef1f3;
+    color: #465568;
+    font-size: 11px;
+}
