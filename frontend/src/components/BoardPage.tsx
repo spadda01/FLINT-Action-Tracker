@@ -109,7 +109,7 @@ function BoardPage({ boardId, onOpened }: BoardPageProps) {
                     </dl>
 
                     {/* display the action items after the selected board loads. */}
-                    <ActionItemsTable />
+                    <ActionItemsTable boardId={board.id}/>
                 </section>
             )}
         </>
