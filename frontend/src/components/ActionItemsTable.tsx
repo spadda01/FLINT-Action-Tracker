@@ -40,14 +40,17 @@ type ActionItemsTableProps = {
 
 function ActionItemsTable({ boardId }: ActionItemsTableProps) {
     const [items, setItems] = useState<ActionItem[]>([])
+    const [isLoading, setIsLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
     useEffect(() => {
         let cancelled = false
         async function loadItems() {
+            setIsLoading(true)
+            setError(null)
             try {
                 const response = await fetch(
                     `/api/boards/${encodeURIComponent(boardId)}/items`
                 )
-
                 if (!response.ok) {
                     throw new Error('Failed to load action items')
                 }
@@ -58,7 +61,15 @@ function ActionItemsTable({ boardId }: ActionItemsTableProps) {
                     setItems(data)
                 }
             } catch (error) {
-                console.error('Error loading action items:', error)
+                if (!cancelled) {
+                    console.error('Error loading action items:', error)
+                    setError('Unable to load action items. Please try again.')
+                    setItems([])
+                }
+            } finally {
+                if (!cancelled) {
+                    setIsLoading(false)
+                }
             }
         }
         loadItems()
@@ -86,8 +97,25 @@ function ActionItemsTable({ boardId }: ActionItemsTableProps) {
                     </thead>
 
                     <tbody>
+                        {isLoading && (
+                            <tr>
+                                <td colSpan={7}>Loading action items...</td>
+                            </tr>
+                        )}
+                        {!isLoading && error && (
+                            <tr>
+                                <td colSpan={7} role="alert">
+                                    {error}
+                                </td>
+                            </tr>
+                        )}
                         {/*generate one table row for each action item. */}
-                        {items.map((item) => (
+                        {!isLoading && !error && items.length === 0 && (
+                            <tr>
+                                <td colSpan={7}>No action items found.</td>
+                            </tr>
+                        )}
+                        {!isLoading && !error && items.map((item) => (
                             <tr key={item.id}>
                                 <td>
                                     <span className={`priority priority-${item.priority.toLowerCase()}`}>
