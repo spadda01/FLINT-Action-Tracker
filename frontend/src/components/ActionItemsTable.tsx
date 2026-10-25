@@ -18,32 +18,6 @@ type ActionItem = {
     attention: boolean
 }
 
-// Temporary sample data until we connect the backend in AT-9.
-const sampleItems: ActionItem[] = [
-    {
-        id: 1,
-        priority: 'High',
-        title: 'Review construction drawings',
-        owners: [
-            { name: 'Austin', isExternal: false },
-            { name: 'Sarah', isExternal: true },
-        ],
-        target: 'Before next meeting',
-        hardDate: '2026-10-30',
-        status: 'In Progress',
-        attention: true,
-    },
-    {
-        id: 2,
-        priority: 'Medium',
-        title: 'Confirm material delivery',
-        owners: [{ name: 'James', isExternal: false }],
-        target: 'ASAP',
-        hardDate: null,
-        status: 'Not Started',
-        attention: false,
-    },
-]
 
 // convert the stored dates from the standard YYYY-MM-DD into readable table dates
 function formatHardDate(date: string | null): string {
@@ -65,7 +39,7 @@ type ActionItemsTableProps = {
 }
 
 function ActionItemsTable({ boardId }: ActionItemsTableProps) {
-    const [items, setItems] = useState<ActionItem[]>(sampleItems)
+    const [items, setItems] = useState<ActionItem[]>([])
     useEffect(() => {
         let cancelled = false
         async function loadItems() {
