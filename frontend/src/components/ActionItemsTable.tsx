@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 
 // store each of the owner's name and whether they work outside flint
 type ActionOwner = {
@@ -9,6 +9,7 @@ type ActionOwner = {
 
 type ActionItem = {
     id: number
+    section: string
     priority: string
     title: string
     owners: ActionOwner[]
@@ -42,6 +43,18 @@ function ActionItemsTable({ boardId }: ActionItemsTableProps) {
     const [items, setItems] = useState<ActionItem[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+    // group action items by section while preserving their order
+    const groupedItems = items.reduce<Record<string, ActionItem[]>>(
+        (groups, item) => {
+            if (!groups[item.section]) {
+                groups[item.section] = []
+            }
+
+            groups[item.section].push(item)
+            return groups
+        },
+        {}
+    )
     useEffect(() => {
         let cancelled = false
         async function loadItems() {
@@ -115,49 +128,59 @@ function ActionItemsTable({ boardId }: ActionItemsTableProps) {
                                 <td colSpan={7}>No action items found.</td>
                             </tr>
                         )}
-                        {!isLoading && !error && items.map((item) => (
-                            <tr key={item.id}>
-                                <td>
-                                    <span className={`priority priority-${item.priority.toLowerCase()}`}>
-                                        <span className="priority-dot" aria-hidden="true" />
-                                        {item.priority}
-                                    </span>
-                                </td>
-                                <td>{item.title}</td>
-                                <td>
-                                    <div className="action-owners">
-                                        {/* show each owner and label the external participants*/}
-                                        {item.owners.map((owner, index) => (
-                                            <span className="action-owner" key={index}>
-                                                {owner.name}
-                                                {owner.isExternal && (
-                                                    <span className="external-tag">External</span>
-                                                )}
+                        {!isLoading && !error && Object.entries(groupedItems).map(([section, sectionItems]) => (
+                            <Fragment key={section}>
+                                <tr className="section-header">
+                                    <th colSpan={7} scope="rowgroup">
+                                        {section}
+                                    </th>
+                                </tr>
+
+                                {sectionItems.map((item) => (
+                                    <tr key={item.id}>
+                                        <td>
+                                            <span className={`priority priority-${item.priority.toLowerCase()}`}>
+                                                <span className="priority-dot" aria-hidden="true" />
+                                                {item.priority}
                                             </span>
-                                        ))}
-                                    </div>
-                                </td>
-                                <td>{item.target}</td>
-                                <td className="hard-date">
-                                    {formatHardDate(item.hardDate)}
-                                </td>
-                                <td>
-                                    <span className={`status-pill status-${item.status.toLowerCase().replace(/\s+/g, '-')}`}>
-                                        {item.status}
-                                    </span>
-                                </td>
-                                <td>
-                                    {item.attention ? (
-                                        <span className="attention-flag" role="img" aria-label="Needs attention">
-                                            ⚠
-                                        </span>
-                                    ) : (
-                                        <span className="attention-none" aria-label="No attention needed">
-                                            —
-                                        </span>
-                                    )}
-                                </td>
-                            </tr>
+                                        </td>
+                                        <td>{item.title}</td>
+                                        <td>
+                                            <div className="action-owners">
+                                                {/* show each owner and label the external participants*/}
+                                                {item.owners.map((owner, index) => (
+                                                    <span className="action-owner" key={index}>
+                                                        {owner.name}
+                                                        {owner.isExternal && (
+                                                            <span className="external-tag">External</span>
+                                                        )}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </td>
+                                        <td>{item.target}</td>
+                                        <td className="hard-date">
+                                            {formatHardDate(item.hardDate)}
+                                        </td>
+                                        <td>
+                                            <span className={`status-pill status-${item.status.toLowerCase().replace(/\s+/g, '-')}`}>
+                                                {item.status}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {item.attention ? (
+                                                <span className="attention-flag" role="img" aria-label="Needs attention">
+                                                    ⚠
+                                                </span>
+                                            ) : (
+                                                <span className="attention-none" aria-label="No attention needed">
+                                                    —
+                                                </span>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </Fragment>
                         ))}
                     </tbody>
                 </table>

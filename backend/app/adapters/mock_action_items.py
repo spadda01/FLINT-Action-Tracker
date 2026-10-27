@@ -5,6 +5,7 @@ MOCK_ACTION_ITEMS = {
     "project-1": [
         ActionItem(
             id=1,
+            section="Design",
             priority="High",
             title="Review construction drawings",
             owners=[
@@ -18,6 +19,7 @@ MOCK_ACTION_ITEMS = {
         ),
         ActionItem(
             id=2,
+            section="Construction",
             priority="Medium",
             title="Confirm material delivery",
             owners=[{"name": "James", "isExternal": False}],

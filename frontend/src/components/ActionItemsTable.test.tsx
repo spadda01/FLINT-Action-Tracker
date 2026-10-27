@@ -36,6 +36,7 @@ test('displays action items returned by the API', async () => {
     const items = [
         {
             id: 1,
+            section: 'Design',
             priority: 'High',
             title: 'Review construction drawings',
             owners: [{ name: 'Austin', isExternal: false }],
@@ -43,6 +44,17 @@ test('displays action items returned by the API', async () => {
             hardDate: '2026-10-30',
             status: 'In Progress',
             attention: true,
+        },
+        {
+            id: 2,
+            section: 'Construction',
+            priority: 'Medium',
+            title: 'Confirm material delivery',
+            owners: [{ name: 'James', isExternal: false }],
+            target: 'ASAP',
+            hardDate: null,
+            status: 'Not Started',
+            attention: false,
         },
     ]
 
@@ -56,6 +68,25 @@ test('displays action items returned by the API', async () => {
     ).toBeTruthy()
 
     expect(screen.getByText('Austin')).toBeTruthy()
+    // verifies the action item appearing beneath its section heading
+    const sectionHeader = screen.getByRole('rowheader', {
+        name: 'Design',
+    })
+    expect(sectionHeader).toBeTruthy()
+    const actionRow = screen.getByText('Review construction drawings').closest('tr')
+    expect(
+        sectionHeader.closest('tr')?.nextElementSibling
+    ).toBe(actionRow)
+
+    // verify the construction section contains its action item
+    const constructionHeader = screen.getByRole('rowheader', {
+        name: 'Construction',
+    })
+    const constructionRow = screen.getByText('Confirm material delivery').closest('tr')
+    expect(
+        constructionHeader.closest('tr')?.nextElementSibling
+    ).toBe(constructionRow)
+
     expect(screen.getByText('High')).toBeTruthy()
     expect(screen.getByText('In Progress')).toBeTruthy()
 

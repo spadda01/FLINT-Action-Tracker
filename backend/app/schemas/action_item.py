@@ -8,6 +8,7 @@ class ActionOwner(BaseModel):
 
 class ActionItem(BaseModel):
     id: int
+    section: str
     priority: str
     title: str
     owners: list[ActionOwner]
