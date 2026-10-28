@@ -388,3 +388,13 @@
     padding: 12px 16px;
     border-bottom: 1px solid #D8DEE2;
 }
+
+/* display the save errors without hiding the action items table */
+.action-save-error {
+    color: #B42318;
+    background-color: #FEF3F2;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    margin: 12px 0;
+}

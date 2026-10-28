@@ -19,6 +19,13 @@ type ActionItem = {
     attention: boolean
 }
 
+type EditableField = 'priority' | 'target' | 'status'
+
+type EditingCell = {
+    itemId: number
+    field: EditableField
+}
+
 
 // convert the stored dates from the standard YYYY-MM-DD into readable table dates
 function formatHardDate(date: string | null): string {
@@ -43,6 +50,74 @@ function ActionItemsTable({ boardId }: ActionItemsTableProps) {
     const [items, setItems] = useState<ActionItem[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+    const [editingCell, setEditingCell] = useState<EditingCell | null>(null)
+    const [saveError, setSaveError] = useState<string | null>(null)
+    // tracks which action item field is being edited currently
+    function startEditing(itemId: number, field: EditableField) {
+        setEditingCell({ itemId, field })
+    }
+    // saves the updated target to the backend before updating the table
+    async function saveTarget(itemId: number, newTarget: string) {
+        setSaveError(null)
+        try {
+            const response = await fetch(
+                `/api/boards/${encodeURIComponent(boardId)}/items/${itemId}`,
+                {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ target: newTarget }),
+                }
+            )
+            if (!response.ok) {
+                throw new Error('Failed to save target')
+            }
+            const updatedItem: ActionItem = await response.json()
+            setItems((previousItems) =>
+                previousItems.map((item) =>
+                    item.id === itemId ? updatedItem : item
+                )
+            )
+        } catch (error) {
+            console.error('Error saving target:', error)
+            setSaveError('Unable to save your changes. Please try again.')
+        }
+    }
+
+    // Save priority changes to the backend.
+    async function savePriority(itemId: number, newPriority: string) {
+        setSaveError(null)
+
+        try {
+            const response = await fetch(
+                `/api/boards/${encodeURIComponent(boardId)}/items/${itemId}`,
+                {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ priority: newPriority }),
+                }
+            )
+
+            if (!response.ok) {
+                throw new Error('Failed to save priority')
+            }
+
+            const updatedItem: ActionItem = await response.json()
+
+            setItems((previousItems) =>
+                previousItems.map((item) =>
+                    item.id === itemId ? updatedItem : item
+                )
+            )
+        } catch (error) {
+            console.error('Error saving priority:', error)
+            setSaveError('Unable to save your changes. Please try again.')
+        }
+    }
+
     // group action items by section while preserving their order
     const groupedItems = items.reduce<Record<string, ActionItem[]>>(
         (groups, item) => {
@@ -95,6 +170,11 @@ function ActionItemsTable({ boardId }: ActionItemsTableProps) {
     return (
         <section className="action-items">
             <h3>Action Items</h3>
+            {saveError && (
+                <p className="action-save-error" role="alert">
+                    {saveError}
+                </p>
+            )}
             <div style={{ overflowX: "auto", width: "100%" }}>
                 <table className="action-items-table" style={{ minWidth: "1000px", width: "100%" }}>
                     <thead>
@@ -139,10 +219,41 @@ function ActionItemsTable({ boardId }: ActionItemsTableProps) {
                                 {sectionItems.map((item) => (
                                     <tr key={item.id}>
                                         <td>
-                                            <span className={`priority priority-${item.priority.toLowerCase()}`}>
-                                                <span className="priority-dot" aria-hidden="true" />
-                                                {item.priority}
-                                            </span>
+                                            {editingCell?.itemId === item.id && editingCell.field === 'priority' ? (
+                                                <select
+                                                    defaultValue={item.priority}
+                                                    aria-label={`Edit priority for ${item.title}`}
+                                                    autoFocus
+                                                    onKeyDown={(event) => {
+                                                        if (event.key === 'Enter') {
+                                                            event.preventDefault()
+
+                                                            const newPriority = event.currentTarget.value
+                                                            void savePriority(item.id, newPriority)
+                                                            setEditingCell(null)
+                                                        }
+
+                                                        if (event.key === 'Escape') {
+                                                            event.preventDefault()
+                                                            setEditingCell(null)
+                                                        }
+                                                    }}
+                                                >
+                                                    <option value="High">High</option>
+                                                    <option value="Medium">Medium</option>
+                                                    <option value="Low">Low</option>
+                                                </select>
+                                            ) : (
+                                                <button
+                                                    type="button"
+                                                    className={`priority priority-${item.priority.toLowerCase()}`}
+                                                    onClick={() => startEditing(item.id, 'priority')}
+                                                    aria-label={`Edit priority for ${item.title}`}
+                                                >
+                                                    <span className="priority-dot" aria-hidden="true" />
+                                                    {item.priority}
+                                                </button>
+                                            )}
                                         </td>
                                         <td>{item.title}</td>
                                         <td>
@@ -158,7 +269,35 @@ function ActionItemsTable({ boardId }: ActionItemsTableProps) {
                                                 ))}
                                             </div>
                                         </td>
-                                        <td>{item.target}</td>
+                                        <td>
+                                            {editingCell?.itemId === item.id && editingCell.field === 'target' ? (
+                                                <input
+                                                    type="text"
+                                                    defaultValue={item.target}
+                                                    aria-label={`Edit target for ${item.title}`}
+                                                    autoFocus
+                                                    onKeyDown={(event) => {
+                                                        if (event.key === 'Enter') {
+                                                            const newTarget = event.currentTarget.value
+                                                            void saveTarget(item.id, newTarget)
+                                                            setEditingCell(null)
+                                                        }
+
+                                                        if (event.key === 'Escape') {
+                                                            setEditingCell(null)
+                                                        }
+                                                    }}
+                                                />
+                                            ) : (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => startEditing(item.id, 'target')}
+                                                    aria-label={`Edit target for ${item.title}`}
+                                                >
+                                                    {item.target}
+                                                </button>
+                                            )}
+                                        </td>
                                         <td className="hard-date">
                                             {formatHardDate(item.hardDate)}
                                         </td>

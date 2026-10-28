@@ -35,3 +35,22 @@ MOCK_ACTION_ITEMS = {
 def get_mock_action_items(board_id: str) -> list[ActionItem]:
     # Return items belonging to the selected board.
     return MOCK_ACTION_ITEMS.get(board_id, [])
+
+
+def update_mock_action_item(
+    board_id: str,
+    item_id: int,
+    target: str | None = None,
+    priority: str | None = None
+) -> ActionItem | None:
+    # update only the fields provided for the selected item
+    for item in MOCK_ACTION_ITEMS.get(board_id, []):
+        if item.id == item_id:
+            if target is not None:
+                item.target = target
+
+            if priority is not None:
+                item.priority = priority
+
+            return item
+    return None
