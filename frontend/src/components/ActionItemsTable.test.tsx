@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import ActionItemsTable from './ActionItemsTable'
+import userEvent from '@testing-library/user-event'
 
 function json(value: unknown, status = 200): Response {
     return new Response(JSON.stringify(value), {
@@ -159,4 +160,247 @@ test('displays all seven Action Items column headers', () => {
             screen.getByRole('columnheader', { name: header })
         ).toBeTruthy()
     }
+})
+
+test('saves target changes to the backend', async () => {
+    const user = userEvent.setup()
+
+    // Simulate a successful backend update.
+    const updatedItem = {
+        id: 1,
+        section: 'Design',
+        priority: 'High',
+        title: 'Review construction drawings',
+        owners: [],
+        target: 'Before next meeting',
+        hardDate: null,
+        status: 'Not Started',
+        attention: false,
+    }
+
+    vi.stubGlobal('fetch', vi.fn(async (_url, options?: RequestInit) => {
+        if (options?.method === 'PATCH') {
+            return {
+                ok: true,
+                json: async () => updatedItem,
+            }
+        }
+
+        return {
+            ok: true,
+            json: async () => [updatedItem],
+        }
+    }))
+
+    render(<ActionItemsTable boardId="project-1" />)
+
+    const targetButton = await screen.findByRole('button', {
+        name: /edit target for review construction drawings/i,
+    })
+
+    await user.click(targetButton)
+
+    const targetInput = screen.getByRole('textbox', {
+        name: /edit target for review construction drawings/i,
+    })
+
+    await user.clear(targetInput)
+    await user.type(targetInput, 'Updated Target{Enter}')
+
+    await waitFor(() => {
+        expect(fetch).toHaveBeenCalledWith(
+            '/api/boards/project-1/items/1',
+            expect.objectContaining({
+                method: 'PATCH',
+                body: JSON.stringify({ target: 'Updated Target' }),
+            })
+        )
+    })
+})
+
+test('saves priority changes to the backend', async () => {
+    const user = userEvent.setup()
+
+    const item = {
+        id: 1,
+        section: 'Design',
+        priority: 'High',
+        title: 'Review construction drawings',
+        owners: [],
+        target: 'Before next meeting',
+        hardDate: null,
+        status: 'Not Started',
+        attention: false,
+    }
+
+    vi.mocked(fetch).mockImplementation(async (_url, options?: RequestInit) => {
+        if (options?.method === 'PATCH') {
+            return json({ ...item, priority: 'Low' })
+        }
+
+        return json([item])
+    })
+
+    render(<ActionItemsTable boardId="project-1" />)
+
+    const priorityButton = await screen.findByRole('button', {
+        name: /edit priority for review construction drawings/i,
+    })
+
+    await user.click(priorityButton)
+
+    const prioritySelect = screen.getByRole('combobox', {
+        name: /edit priority for review construction drawings/i,
+    })
+
+    await user.selectOptions(prioritySelect, 'Low')
+    await user.keyboard('{Enter}')
+
+    await waitFor(() => {
+        expect(fetch).toHaveBeenCalledWith(
+            '/api/boards/project-1/items/1',
+            expect.objectContaining({
+                method: 'PATCH',
+                body: JSON.stringify({ priority: 'Low' }),
+            })
+        )
+    })
+})
+
+test('saves status changes to the backend', async () => {
+    const user = userEvent.setup()
+
+    const item = {
+        id: 1,
+        section: 'Design',
+        priority: 'High',
+        title: 'Review construction drawings',
+        owners: [],
+        target: 'Before next meeting',
+        hardDate: null,
+        status: 'Not Started',
+        attention: false,
+    }
+
+    vi.mocked(fetch).mockImplementation(async (_url, options?: RequestInit) => {
+        if (options?.method === 'PATCH') {
+            return json({ ...item, status: 'Done' })
+        }
+
+        return json([item])
+    })
+
+    render(<ActionItemsTable boardId="project-1" />)
+
+    const statusButton = await screen.findByRole('button', {
+        name: /edit status for review construction drawings/i,
+    })
+
+    await user.click(statusButton)
+
+    const statusSelect = screen.getByRole('combobox', {
+        name: /edit status for review construction drawings/i,
+    })
+
+    await user.selectOptions(statusSelect, 'Done')
+    await user.keyboard('{Enter}')
+
+    await waitFor(() => {
+        expect(fetch).toHaveBeenCalledWith(
+            '/api/boards/project-1/items/1',
+            expect.objectContaining({
+                method: 'PATCH',
+                body: JSON.stringify({ status: 'Done' }),
+            })
+        )
+    })
+})
+
+test('cancels target editing when Escape is pressed', async () => {
+    const user = userEvent.setup()
+
+    const item = {
+        id: 1,
+        section: 'Design',
+        priority: 'High',
+        title: 'Review construction drawings',
+        owners: [],
+        target: 'Before next meeting',
+        hardDate: null,
+        status: 'Not Started',
+        attention: false,
+    }
+
+    vi.mocked(fetch).mockResolvedValue(json([item]))
+
+    render(<ActionItemsTable boardId="project-1" />)
+
+    const targetButton = await screen.findByRole('button', {
+        name: /edit target for review construction drawings/i,
+    })
+
+    await user.click(targetButton)
+
+    const targetInput = screen.getByRole('textbox', {
+        name: /edit target for review construction drawings/i,
+    })
+
+    await user.clear(targetInput)
+    await user.type(targetInput, 'Changed Target{Escape}')
+
+    expect(screen.queryByRole('textbox', {
+        name: /edit target for review construction drawings/i,
+    })).toBeNull()
+
+    expect(screen.getByText('Before next meeting')).toBeTruthy()
+    expect(fetch).toHaveBeenCalledTimes(1)
+})
+
+test('displays an error when saving a target fails', async () => {
+    const user = userEvent.setup()
+
+    const item = {
+        id: 1,
+        section: 'Design',
+        priority: 'High',
+        title: 'Review construction drawings',
+        owners: [],
+        target: 'Before next meeting',
+        hardDate: null,
+        status: 'Not Started',
+        attention: false,
+    }
+
+    // Load the item successfully, but simulate a failed PATCH.
+    vi.mocked(fetch).mockImplementation(async (_url, options?: RequestInit) => {
+        if (options?.method === 'PATCH') {
+            return json({}, 503)
+        }
+
+        return json([item])
+    })
+
+    render(<ActionItemsTable boardId="project-1" />)
+
+    const targetButton = await screen.findByRole('button', {
+        name: /edit target for review construction drawings/i,
+    })
+
+    await user.click(targetButton)
+
+    const targetInput = screen.getByRole('textbox', {
+        name: /edit target for review construction drawings/i,
+    })
+
+    await user.clear(targetInput)
+    await user.type(targetInput, 'Updated Target{Enter}')
+
+    expect(
+        await screen.findByText(
+            'Unable to save your changes. Please try again.'
+        )
+    ).toBeTruthy()
+
+    // The previous value should remain unchanged.
+    expect(screen.getByText('Before next meeting')).toBeTruthy()
 })

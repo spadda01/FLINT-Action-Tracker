@@ -118,6 +118,35 @@ function ActionItemsTable({ boardId }: ActionItemsTableProps) {
         }
     }
 
+    //save status changes to the backend
+    async function saveStatus(itemId: number, newStatus: string) {
+        setSaveError(null)
+        try {
+            const response = await fetch(
+                `/api/boards/${encodeURIComponent(boardId)}/items/${itemId}`,
+                {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ status: newStatus }),
+                }
+            )
+            if (!response.ok) {
+                throw new Error('Failed to save status')
+            }
+            const updatedItem: ActionItem = await response.json()
+            setItems((previousItems) =>
+                previousItems.map((item) =>
+                    item.id === itemId ? updatedItem : item
+                )
+            )
+        } catch (error) {
+            console.error('Error saving status:', error)
+            setSaveError('Unable to save your changes. Please try again.')
+        }
+    }
+
     // group action items by section while preserving their order
     const groupedItems = items.reduce<Record<string, ActionItem[]>>(
         (groups, item) => {
@@ -302,9 +331,38 @@ function ActionItemsTable({ boardId }: ActionItemsTableProps) {
                                             {formatHardDate(item.hardDate)}
                                         </td>
                                         <td>
-                                            <span className={`status-pill status-${item.status.toLowerCase().replace(/\s+/g, '-')}`}>
-                                                {item.status}
-                                            </span>
+                                            {editingCell?.itemId === item.id && editingCell.field === 'status' ? (
+                                                <select
+                                                    defaultValue={item.status}
+                                                    aria-label={`Edit status for ${item.title}`}
+                                                    autoFocus
+                                                    onKeyDown={(event) => {
+                                                        if (event.key === 'Enter') {
+                                                            event.preventDefault()
+                                                            const newStatus = event.currentTarget.value
+                                                            void saveStatus(item.id, newStatus)
+                                                            setEditingCell(null)
+                                                        }
+                                                        if (event.key === 'Escape') {
+                                                            event.preventDefault()
+                                                            setEditingCell(null)
+                                                        }
+                                                    }}
+                                                >
+                                                    <option value="Not Started">Not Started</option>
+                                                    <option value="In Progress">In Progress</option>
+                                                    <option value="Done">Done</option>
+                                                </select>
+                                            ) : (
+                                                <button
+                                                    type="button"
+                                                    className={`status-pill status-${item.status.toLowerCase().replace(/\s+/g, '-')}`}
+                                                    onClick={() => startEditing(item.id, 'status')}
+                                                    aria-label={`Edit status for ${item.title}`}
+                                                >
+                                                    {item.status}
+                                                </button>
+                                            )}
                                         </td>
                                         <td>
                                             {item.attention ? (

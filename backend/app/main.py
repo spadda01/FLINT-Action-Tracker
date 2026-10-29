@@ -20,6 +20,7 @@ from pydantic import BaseModel
 class ActionItemUpdate(BaseModel):
     target: str | None = None
     priority: str | None = None
+    status: str | None = None
 
 
 app = FastAPI(title="FLINT Action Tracker API")
@@ -145,7 +146,7 @@ def update_board_item_target(
     # Verify board access before allowing an update.
     get_board(board_id, user_id, repository, service)
 
-    updated_item = update_mock_action_item(board_id, item_id, target=update.target, priority=update.priority)
+    updated_item = update_mock_action_item(board_id, item_id, target=update.target, priority=update.priority, status=update.status)
 
     if updated_item is None:
         raise HTTPException(

@@ -41,7 +41,8 @@ def update_mock_action_item(
     board_id: str,
     item_id: int,
     target: str | None = None,
-    priority: str | None = None
+    priority: str | None = None,
+    status: str | None = None,
 ) -> ActionItem | None:
     # update only the fields provided for the selected item
     for item in MOCK_ACTION_ITEMS.get(board_id, []):
@@ -51,6 +52,8 @@ def update_mock_action_item(
 
             if priority is not None:
                 item.priority = priority
+            if status is not None:
+                item.status = status
 
             return item
     return None
