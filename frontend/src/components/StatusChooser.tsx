@@ -24,6 +24,7 @@ function StatusChooser({
     const [activeIndex, setActiveIndex] = useState(0)
     const [pendingStatus, setPendingStatus] = useState<string | null>(null)
     const [failedStatus, setFailedStatus] = useState<string | null>(null)
+    const [failureReason, setFailureReason] = useState('')
     const [announcement, setAnnouncement] = useState('')
 
     const menuId = useId()
@@ -93,14 +94,16 @@ function StatusChooser({
 
         setPendingStatus(nextStatus)
         setFailedStatus(null)
+        setFailureReason('')
         setAnnouncement('')
 
         try {
             await onChange(nextStatus)
             setAnnouncement(`Status changed to ${nextStatus}.`)
-        } catch {
-            // Keep the old status on screen and offer a retry.
+        } catch (error) {
+            // Keep the old status on screen, say why it failed, and offer a retry.
             setFailedStatus(nextStatus)
+            setFailureReason(error instanceof Error ? error.message : '')
         } finally {
             setPendingStatus(null)
         }
@@ -217,6 +220,7 @@ function StatusChooser({
             {failedStatus && (
                 <p role="alert" className={styles.error}>
                     Couldn't change status to {failedStatus}. It is still {status}.{' '}
+                    {failureReason && <>{failureReason}{' '}</>}
                     <button
                         type="button"
                         className={styles.retry}

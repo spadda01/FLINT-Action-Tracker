@@ -13,3 +13,26 @@ export const DEFAULT_STATUSES = [
 export function statusClassName(status: string): string {
     return 'status-' + status.trim().toLowerCase().replace(/\s+/g, '-')
 }
+
+export type ItemStatus = {
+    id: number
+    boardId: string
+    title: string
+    status: string
+}
+
+// One saved status change: who made it, when, and the old and new status.
+export type StatusHistoryEntry = {
+    itemId: number
+    boardId: string
+    actorId: string
+    changedAt: string
+    oldStatus: string
+    newStatus: string
+}
+
+// change is null when the item already had the requested status.
+export type StatusChangeResult = {
+    item: ItemStatus
+    change: StatusHistoryEntry | null
+}

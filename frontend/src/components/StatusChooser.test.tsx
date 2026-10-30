@@ -143,6 +143,19 @@ describe('StatusChooser', () => {
         )
     })
 
+    it('shows the reason the save failed', async () => {
+        const user = userEvent.setup()
+        const save = vi.fn().mockRejectedValue(new Error("You don't have permission to change this item."))
+        render(<Row save={save} initialStatus="Open" />)
+
+        await user.click(toggleButton())
+        await user.click(screen.getByRole('menuitemradio', { name: /complete/i }))
+
+        expect(await screen.findByRole('alert')).toHaveTextContent(
+            "Couldn't change status to Complete. It is still Open. You don't have permission to change this item.",
+        )
+    })
+
     it('retries the failed status from the error message', async () => {
         const user = userEvent.setup()
         const save = vi
