@@ -1,13 +1,17 @@
 
 # AT-166: Automated tests for the Priority API
 # Parent story: AT-70
+# Includes AT-70 + Action Items Table integration testing
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
 from app.api import priorities
-from app.adapters.mock_action_items import MockActionItemRepository
+from app.adapters.mock_action_items import (
+    MOCK_ACTION_ITEMS,
+    MockActionItemRepository,
+)
 
 
 @pytest.fixture
@@ -39,7 +43,9 @@ def test_get_priority_levels(client):
 
 
 def test_get_action_items(client):
-    response = client.get("/api/boards/project-1/items")
+    response = client.get(
+        "/api/boards/project-1/priorities"
+    )
 
     assert response.status_code == 200
     assert len(response.json()) == 2
@@ -55,7 +61,9 @@ def test_update_priority(client):
     assert response.json()["priority"] == "Low"
 
     # Check that the change was saved in mock storage.
-    saved = client.get("/api/boards/project-1/items")
+    saved = client.get(
+        "/api/boards/project-1/priorities"
+    )
 
     assert saved.status_code == 200
     assert saved.json()[0]["priority"] == "Low"
@@ -63,19 +71,21 @@ def test_update_priority(client):
 
 def test_sort_items(client):
     response = client.get(
-        "/api/boards/project-1/items?sort=true"
+        "/api/boards/project-1/priorities?sort=true"
     )
 
     assert response.status_code == 200
+
     priorities_list = [
         item["priority"] for item in response.json()
     ]
+
     assert priorities_list == ["High", "Medium"]
 
 
 def test_filter_items(client):
     response = client.get(
-        "/api/boards/project-1/items?priority=Medium"
+        "/api/boards/project-1/priorities?priority=Medium"
     )
 
     assert response.status_code == 200
@@ -85,7 +95,7 @@ def test_filter_items(client):
 
 def test_invalid_filter(client):
     response = client.get(
-        "/api/boards/project-1/items?priority=Urgent"
+        "/api/boards/project-1/priorities?priority=Urgent"
     )
 
     assert response.status_code == 422
@@ -93,7 +103,7 @@ def test_invalid_filter(client):
 
 def test_restricted_board(client):
     response = client.get(
-        "/api/boards/team-restricted/items"
+        "/api/boards/team-restricted/priorities"
     )
 
     assert response.status_code == 403
@@ -130,7 +140,7 @@ def test_unrecognized_mock_user(client, monkeypatch):
     monkeypatch.setenv("MOCK_USER_ID", "unknown")
 
     response = client.get(
-        "/api/boards/project-1/items"
+        "/api/boards/project-1/priorities"
     )
 
     assert response.status_code == 401
@@ -140,7 +150,7 @@ def test_mock_mode_required(client, monkeypatch):
     monkeypatch.delenv("APP_MODE", raising=False)
 
     response = client.get(
-        "/api/boards/project-1/items"
+        "/api/boards/project-1/priorities"
     )
 
     assert response.status_code == 503
@@ -162,3 +172,57 @@ def test_failed_save(client, monkeypatch):
     )
 
     assert response.status_code == 404
+
+
+# Integration test: Verify both backend APIs share priority changes.
+def test_priority_shared_between_both_apis(client, monkeypatch):
+    """Both APIs should see each other's saved priority changes."""
+
+    # Use the same mock data that Saihaj's table API uses.
+    monkeypatch.setattr(
+        priorities,
+        "item_repository",
+        MockActionItemRepository(MOCK_ACTION_ITEMS),
+    )
+
+    item = MOCK_ACTION_ITEMS["project-1"][0]
+    original_priority = item.priority
+
+    try:
+        # Step 1: Update priority through the AT-70 API.
+        response = client.patch(
+            "/api/boards/project-1/items/1/priority",
+            json={"priority": "Low"},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["priority"] == "Low"
+
+        # Step 2: Saihaj's Action Items API should see Low.
+        response = client.get(
+            "/api/boards/project-1/items"
+        )
+
+        assert response.status_code == 200
+        assert response.json()[0]["priority"] == "Low"
+
+        # Step 3: Update through Saihaj's shared PATCH API.
+        response = client.patch(
+            "/api/boards/project-1/items/1",
+            json={"priority": "Medium"},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["priority"] == "Medium"
+
+        # Step 4: Your AT-70 API should see Medium.
+        response = client.get(
+            "/api/boards/project-1/priorities"
+        )
+
+        assert response.status_code == 200
+        assert response.json()[0]["priority"] == "Medium"
+
+    finally:
+        # Restore shared mock data for other tests.
+        item.priority = original_priority

@@ -9,6 +9,21 @@ from app.schemas.boards import Board
 from app.services.board_service import BoardService
 from app.services.boards import list_accessible_boards
 from app.services.service_factory import create_services
+from app.adapters.mock_action_items import (
+    get_mock_action_items,
+    update_mock_action_item,
+)
+from app.schemas.action_item import ActionItem
+from app.services.priority_permissions import can_edit_priority
+from app.services.priority_service import PriorityService
+from pydantic import BaseModel
+
+
+class ActionItemUpdate(BaseModel):
+    target: str | None = None
+    priority: str | None = None
+    status: str | None = None
+
 
 app = FastAPI(title="FLINT Action Tracker API")
 app.include_router(priorities_router)
@@ -24,7 +39,9 @@ MOCK_EMPLOYEE_IDS = {
 
 def require_mock_mode() -> None:
     if os.getenv("APP_MODE") != "mock":
-        raise HTTPException(status_code=503, detail="Backend integration is not configured.")
+        raise HTTPException(
+            status_code=503, detail="Backend integration is not configured."
+        )
 
 
 def get_current_user_id() -> str:
@@ -58,7 +75,9 @@ def can_open_created_board(board: dict, user_id: str, service: BoardService) -> 
 
 def created_board_summary(board: dict) -> BoardSummary:
     return BoardSummary(
-        id=board["id"], name=board["name"], type=board["type"],
+        id=board["id"],
+        name=board["name"],
+        type=board["type"],
         openItemCount=board.get("openItemCount", 0),
     )
 
@@ -104,6 +123,52 @@ def get_board(
     if saved_board and can_open_created_board(saved_board, user_id, service):
         return Board.model_validate(saved_board)
     raise HTTPException(status_code=404, detail="Board not found.")
+
+
+@app.get("/api/boards/{board_id}/items", response_model=list[ActionItem])
+def get_board_items(
+    board_id: str,
+    user_id: str = Depends(get_current_user_id),
+    repository: BoardRepository = Depends(get_board_repository),
+    service: BoardService = Depends(get_board_service),
+) -> list[ActionItem]:
+    # Reuse board access checks before returning its action items.
+    get_board(board_id, user_id, repository, service)
+    return get_mock_action_items(board_id)
+
+
+@app.patch("/api/boards/{board_id}/items/{item_id}", response_model=ActionItem)
+def update_board_item_target(
+    board_id: str,
+    item_id: int,
+    update: ActionItemUpdate,
+    user_id: str = Depends(get_current_user_id),
+    repository: BoardRepository = Depends(get_board_repository),
+    service: BoardService = Depends(get_board_service),
+) -> ActionItem:
+    # Verify board access before allowing an update.
+    get_board(board_id, user_id, repository, service)
+
+    if not can_edit_priority(user_id, board_id, repository):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    if update.priority is not None:
+        try:
+            PriorityService().validate_priority(update.priority)
+        except ValueError as error:
+            raise HTTPException(
+                status_code=422, detail=str(error)
+            ) from error
+
+    updated_item = update_mock_action_item(board_id, item_id, target=update.target, priority=update.priority, status=update.status)
+
+    if updated_item is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Action item not found.",
+        )
+
+    return updated_item
 
 
 def check_access(x_mock_role: str = Header(default="viewer")):

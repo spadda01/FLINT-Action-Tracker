@@ -1,6 +1,7 @@
 
 import { useEffect, useState } from "react";
 import PriorityEditor from "./PriorityEditor";
+import { announcePriorityUpdate, subscribeToPriorityUpdates } from "../services/priorityEvents";
 import {
   getPriorities,
   getPriorityItems,
@@ -63,6 +64,20 @@ export default function PriorityPanel({ boardId }: PriorityPanelProps) {
     };
   }, [boardId]);
 
+  useEffect(() => {
+    return subscribeToPriorityUpdates(
+      ({ boardId: updatedBoardId, itemId, priority }) => {
+        if (updatedBoardId !== boardId) return;
+
+        setItems((previous) =>
+          previous.map((item) =>
+            item.id === itemId ? { ...item, priority } : item
+          )
+        );
+      }
+    );
+  }, [boardId]);
+
   async function updateItem(itemId: number, priority: string) {
     const saved = await saveItemPriority(boardId, itemId, priority);
 
@@ -73,6 +88,12 @@ export default function PriorityPanel({ boardId }: PriorityPanelProps) {
           : item
       )
     );
+
+    announcePriorityUpdate({
+      boardId,
+      itemId,
+      priority: saved.priority,
+    });
   }
 
   // Filter by selected priority.

@@ -5,14 +5,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.adapters.boards import MockBoardRepository
-from app.adapters.mock_action_items import MockActionItemRepository
+from app.adapters.mock_action_items import MOCK_ACTION_ITEMS, MockActionItemRepository
 from app.services.priority_permissions import can_edit_priority
 from app.services.priority_service import PriorityService
 
 router = APIRouter(prefix="/api", tags=["Priorities"])
 
 priority_service = PriorityService()
-item_repository = MockActionItemRepository()
+item_repository = MockActionItemRepository(MOCK_ACTION_ITEMS)
 board_repository = MockBoardRepository()
 
 
@@ -43,7 +43,7 @@ def get_priorities():
     return priority_service.get_levels()
 
 
-@router.get("/boards/{board_id}/items")
+@router.get("/boards/{board_id}/priorities")
 def list_items(
     board_id: str,
     priority: str | None = None,

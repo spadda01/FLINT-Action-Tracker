@@ -24,7 +24,7 @@ export async function getPriorityItems(
   boardId: string
 ): Promise<PriorityItem[]> {
   const response = await fetch(
-    `/api/boards/${encodeURIComponent(boardId)}/items`
+    `/api/boards/${encodeURIComponent(boardId)}/priorities`
   );
 
   if (!response.ok) {
