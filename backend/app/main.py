@@ -1,7 +1,7 @@
 import os
 
 from fastapi import Depends, FastAPI, Header, HTTPException
-
+from app.api.priorities import router as priorities_router
 from app.adapters.boards import BoardRepository, MockBoardRepository
 from app.api.boards import get_board_service, router as boards_router
 from app.schemas.board import BoardSummary
@@ -11,6 +11,7 @@ from app.services.boards import list_accessible_boards
 from app.services.service_factory import create_services
 
 app = FastAPI(title="FLINT Action Tracker API")
+app.include_router(priorities_router)
 services = create_services()
 
 # Map our board-list mock identities to the shared employee adapter's IDs.
