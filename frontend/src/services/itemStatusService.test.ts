@@ -75,6 +75,15 @@ describe('changeItemStatus', () => {
         expect(error.message).toBe('Done is not a status on this board.')
     })
 
+    it('falls back to a general message for a 422 without a status message', async () => {
+        mockFetch(422, { detail: [{ msg: 'Input should be a valid string' }] })
+
+        const error = await failureOf(changeItemStatus('project-1', 2, 'Open'))
+
+        expect(error.status).toBe(422)
+        expect(error.message).toContain('error 422')
+    })
+
     it.each([
         [401, 'Your sign-in could not be confirmed'],
         [403, "You don't have permission"],

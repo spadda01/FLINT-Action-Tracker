@@ -231,3 +231,54 @@ def test_status_api_is_off_outside_mock_mode(client, monkeypatch):
     monkeypatch.delenv("APP_MODE", raising=False)
 
     assert change(client, "project-1", 1, "Complete").status_code == 503
+
+
+# --- AT-160: story-level checks ---
+
+def test_an_item_can_move_through_every_status_with_each_change_recorded(client):
+    path = ["Open", "Not Started", "In Progress", "Scheduled", "Outstanding", "Complete"]
+
+    for status in path:
+        assert change(client, "team-1", 4, status).status_code == 200
+
+    entries = list(reversed(history(client, "team-1", 4).json()))
+    # Item 4 starts as Open, so picking Open first adds nothing.
+    assert [(e["oldStatus"], e["newStatus"]) for e in entries] == list(zip(path[:-1], path[1:]))
+
+
+def test_latest_history_entry_matches_the_item_status(client):
+    change(client, "project-1", 1, "Scheduled")
+    latest = change(client, "project-1", 1, "Outstanding").json()
+
+    assert history(client, "project-1", 1).json()[0]["newStatus"] == latest["item"]["status"]
+
+
+def test_changes_persist_between_requests(client):
+    change(client, "project-1", 2, "Complete")
+
+    # Picking Complete again proves the saved value was read back.
+    assert change(client, "project-1", 2, "Complete").json()["change"] is None
+    assert change(client, "project-1", 2, "Open").json()["change"]["oldStatus"] == "Complete"
+
+
+def test_status_of_the_wrong_type_is_rejected_and_nothing_is_saved(client):
+    response = client.patch("/api/boards/project-1/items/1/status", json={"status": 123})
+
+    assert response.status_code == 422
+    assert history(client, "project-1", 1).json() == []
+
+
+def test_non_numeric_item_id_is_rejected(client):
+    response = client.patch("/api/boards/project-1/items/abc/status", json={"status": "Open"})
+
+    assert response.status_code == 422
+
+
+def test_real_clock_records_utc_time():
+    from datetime import datetime
+
+    service = StatusService(InMemoryActionItemStore(), InMemoryStatusHistoryStore())
+    result = service.change_status("project-1", 2, "Complete", "user-1")
+
+    changed_at = datetime.fromisoformat(result["change"]["changedAt"])
+    assert changed_at.utcoffset().total_seconds() == 0
