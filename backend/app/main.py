@@ -4,6 +4,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 
 from app.adapters.boards import BoardRepository, MockBoardRepository
 from app.api.boards import get_board_service, router as boards_router
+from app.api.item_status import router as item_status_router
 from app.schemas.board import BoardSummary
 from app.schemas.boards import Board
 from app.services.board_service import BoardService
@@ -64,6 +65,7 @@ def created_board_summary(board: dict) -> BoardSummary:
 
 # Keep team-board creation on the shared router, with mock identity checks.
 app.include_router(boards_router, dependencies=[Depends(get_current_user_id)])
+app.include_router(item_status_router)
 
 
 @app.get("/api/me")
