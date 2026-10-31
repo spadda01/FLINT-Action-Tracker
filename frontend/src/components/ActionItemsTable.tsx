@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from 'react'
-import { announcePriorityUpdate, subscribeToPriorityUpdates } from '../services/priorityEvents'
+import { announcePriorityUpdate, subscribeToPriorityUpdates, announceActionItemCreated } from '../services/priorityEvents'
 
 // store each of the owner's name and whether they work outside flint
 type ActionOwner = {
@@ -53,6 +53,10 @@ function ActionItemsTable({ boardId }: ActionItemsTableProps) {
     const [error, setError] = useState<string | null>(null)
     const [editingCell, setEditingCell] = useState<EditingCell | null>(null)
     const [saveError, setSaveError] = useState<string | null>(null)
+    // track the new action item's title and creation state
+    const [newItemTitle, setNewItemTitle] = useState('')
+    const [isCreating, setIsCreating] = useState(false)
+    const [createError, setCreateError] = useState<string | null>(null)
 
     useEffect(() => {
         return subscribeToPriorityUpdates(
@@ -170,6 +174,45 @@ function ActionItemsTable({ boardId }: ActionItemsTableProps) {
         }
     }
 
+    // create a new action item and add it to the table.
+    async function createActionItem() {
+        const title = newItemTitle.trim()
+
+        if (!title || isCreating) return
+
+        setIsCreating(true)
+        setCreateError(null)
+
+        try {
+            const response = await fetch(
+                `/api/boards/${encodeURIComponent(boardId)}/items`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ title }),
+                }
+            )
+
+            if (!response.ok) {
+                throw new Error('Failed to create action item')
+            }
+
+            const createdItem: ActionItem = await response.json()
+
+            setItems((previousItems) => [...previousItems, createdItem])
+            // notify the priority panel that a new item is available
+            announceActionItemCreated({ boardId })
+            setNewItemTitle('')
+        } catch (error) {
+            console.error('Error creating action item:', error)
+            setCreateError('Unable to create action item. Please try again.')
+        } finally {
+            setIsCreating(false)
+        }
+    }
+
     // group action items by section while preserving their order
     const groupedItems = items.reduce<Record<string, ActionItem[]>>(
         (groups, item) => {
@@ -225,6 +268,11 @@ function ActionItemsTable({ boardId }: ActionItemsTableProps) {
             {saveError && (
                 <p className="action-save-error" role="alert">
                     {saveError}
+                </p>
+            )}
+            {createError && (
+                <p className="action-save-error" role="alert">
+                    {createError}
                 </p>
             )}
             <div style={{ overflowX: "auto", width: "100%" }}>
@@ -402,6 +450,33 @@ function ActionItemsTable({ boardId }: ActionItemsTableProps) {
                                 ))}
                             </Fragment>
                         ))}
+                        {!isLoading && !error && (
+                            <tr className="quick-entry-row">
+                                <td colSpan={7}>
+                                    <form
+                                        onSubmit={(event) => {
+                                            event.preventDefault()
+                                            void createActionItem()
+                                        }}
+                                    >
+                                        <input
+                                            type="text"
+                                            value={newItemTitle}
+                                            onChange={(event) => setNewItemTitle(event.target.value)}
+                                            placeholder="+ Add an action item"
+                                            aria-label="New action item title"
+                                            disabled={isCreating}
+                                        />
+                                        <button
+                                            type="submit"
+                                            disabled={isCreating || !newItemTitle.trim()}
+                                        >
+                                            {isCreating ? 'Adding...' : 'Add Item'}
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        )}
                     </tbody>
                 </table>
             </div>

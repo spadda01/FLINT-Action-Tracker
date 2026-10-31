@@ -4,16 +4,17 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from app.adapters.boards import MockBoardRepository
+from app.adapters.boards import BoardRepository, MockBoardRepository
+from app.api.boards import get_board_service
+from app.services.board_access import can_access_board
+from app.services.board_service import BoardService
 from app.adapters.mock_action_items import MOCK_ACTION_ITEMS, MockActionItemRepository
-from app.services.priority_permissions import can_edit_priority
 from app.services.priority_service import PriorityService
 
 router = APIRouter(prefix="/api", tags=["Priorities"])
 
 priority_service = PriorityService()
 item_repository = MockActionItemRepository(MOCK_ACTION_ITEMS)
-board_repository = MockBoardRepository()
 
 
 class PriorityUpdate(BaseModel):
@@ -49,8 +50,10 @@ def list_items(
     priority: str | None = None,
     sort: bool = False,
     user_id: str = Depends(get_mock_user),
+    repository: BoardRepository = Depends(MockBoardRepository),
+    service: BoardService = Depends(get_board_service),
 ):
-    if not can_edit_priority(user_id, board_id, board_repository):
+    if not can_access_board(board_id, user_id, repository, service):
         raise HTTPException(status_code=403, detail="Access denied")
 
     items = item_repository.list_items(board_id)
@@ -73,8 +76,10 @@ def update_item_priority(
     item_id: int,
     data: PriorityUpdate,
     user_id: str = Depends(get_mock_user),
+    repository: BoardRepository = Depends(MockBoardRepository),
+    service: BoardService = Depends(get_board_service),
 ):
-    if not can_edit_priority(user_id, board_id, board_repository):
+    if not can_access_board(board_id, user_id, repository, service):
         raise HTTPException(status_code=403, detail="Access denied")
 
     try:

@@ -404,3 +404,90 @@ test('displays an error when saving a target fails', async () => {
     // The previous value should remain unchanged.
     expect(screen.getByText('Before next meeting')).toBeTruthy()
 })
+
+test('creates a new action item using quick entry', async () => {
+    const user = userEvent.setup()
+
+    const createdItem = {
+        id: 3,
+        section: 'General',
+        priority: 'Medium',
+        title: 'Review updated construction schedule',
+        owners: [],
+        target: '',
+        hardDate: null,
+        status: 'Not Started',
+        attention: false,
+    }
+
+    vi.mocked(fetch).mockImplementation(async (_url, options?: RequestInit) => {
+        if (options?.method === 'POST') {
+            return json(createdItem, 201)
+        }
+
+        return json([])
+    })
+
+    render(<ActionItemsTable boardId="project-1" />)
+
+    const input = await screen.findByRole('textbox', {
+        name: 'New action item title',
+    })
+
+    await user.type(input, 'Review updated construction schedule{Enter}')
+
+    await waitFor(() => {
+        expect(fetch).toHaveBeenCalledWith(
+            '/api/boards/project-1/items',
+            expect.objectContaining({
+                method: 'POST',
+                body: JSON.stringify({
+                    title: 'Review updated construction schedule',
+                }),
+            })
+        )
+    })
+
+    expect(
+        await screen.findByText('Review updated construction schedule')
+    ).toBeTruthy()
+
+    expect(screen.getByText('General')).toBeTruthy()
+})
+
+test('preserves the title when quick entry fails', async () => {
+    const user = userEvent.setup()
+
+    vi.mocked(fetch).mockImplementation(async (_url, options?: RequestInit) => {
+        if (options?.method === 'POST') {
+            return json({}, 503)
+        }
+
+        return json([])
+    })
+
+    render(<ActionItemsTable boardId="project-1" />)
+
+    const input = await screen.findByRole('textbox', {
+        name: 'New action item title',
+    })
+
+    await user.type(input, 'Review construction schedule{Enter}')
+
+    expect(
+        await screen.findByText(
+            'Unable to create action item. Please try again.'
+        )
+    ).toBeTruthy()
+
+    expect((input as HTMLInputElement).value).toBe(
+        'Review construction schedule'
+    )
+
+    expect(fetch).toHaveBeenCalledWith(
+        '/api/boards/project-1/items',
+        expect.objectContaining({
+            method: 'POST',
+        })
+    )
+})

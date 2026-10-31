@@ -10,13 +10,15 @@ from app.services.board_service import BoardService
 from app.services.boards import list_accessible_boards
 from app.services.service_factory import create_services
 from app.adapters.mock_action_items import (
+    create_mock_action_item,
     get_mock_action_items,
     update_mock_action_item,
 )
-from app.schemas.action_item import ActionItem
+from app.schemas.action_item import ActionItem, ActionItemCreate
 from app.services.priority_permissions import can_edit_priority
 from app.services.priority_service import PriorityService
 from pydantic import BaseModel
+from app.services.board_access import MOCK_EMPLOYEE_IDS, can_open_created_board
 
 
 class ActionItemUpdate(BaseModel):
@@ -28,13 +30,6 @@ class ActionItemUpdate(BaseModel):
 app = FastAPI(title="FLINT Action Tracker API")
 app.include_router(priorities_router)
 services = create_services()
-
-# Map our board-list mock identities to the shared employee adapter's IDs.
-MOCK_EMPLOYEE_IDS = {
-    "user-1": "E001",
-    "user-2": "E002",
-    "user-3": "E003",
-}
 
 
 def require_mock_mode() -> None:
@@ -55,22 +50,6 @@ def get_current_user_id() -> str:
 def get_board_repository() -> BoardRepository:
     require_mock_mode()
     return MockBoardRepository()
-
-
-def can_open_created_board(board: dict, user_id: str, service: BoardService) -> bool:
-    if board.get("isArchived", False):
-        return False
-    employee_id = MOCK_EMPLOYEE_IDS[user_id]
-    group_ids = {
-        group["id"]
-        for group in service.groups.get_groups()
-        if employee_id in group.get("memberIds", [])
-    }
-    return any(
-        (member["type"] == "user" and member["id"] == employee_id)
-        or (member["type"] == "group" and member["id"] in group_ids)
-        for member in board.get("members", [])
-    )
 
 
 def created_board_summary(board: dict) -> BoardSummary:
@@ -137,6 +116,26 @@ def get_board_items(
     return get_mock_action_items(board_id)
 
 
+# create an action item on a board the current user can access
+@app.post("/api/boards/{board_id}/items", response_model=ActionItem, status_code=201)
+def create_board_item(
+    board_id: str,
+    new_item: ActionItemCreate,
+    user_id: str = Depends(get_current_user_id),
+    repository: BoardRepository = Depends(get_board_repository),
+    service: BoardService = Depends(get_board_service),
+) -> ActionItem:
+    get_board(board_id, user_id, repository, service)
+
+    if not new_item.title.strip():
+        raise HTTPException(
+            status_code=422,
+            detail="Action item title cannot be empty.",
+        )
+
+    return create_mock_action_item(board_id, new_item)
+
+
 @app.patch("/api/boards/{board_id}/items/{item_id}", response_model=ActionItem)
 def update_board_item_target(
     board_id: str,
@@ -149,18 +148,19 @@ def update_board_item_target(
     # Verify board access before allowing an update.
     get_board(board_id, user_id, repository, service)
 
-    if not can_edit_priority(user_id, board_id, repository):
-        raise HTTPException(status_code=403, detail="Access denied")
-
     if update.priority is not None:
         try:
             PriorityService().validate_priority(update.priority)
         except ValueError as error:
-            raise HTTPException(
-                status_code=422, detail=str(error)
-            ) from error
+            raise HTTPException(status_code=422, detail=str(error)) from error
 
-    updated_item = update_mock_action_item(board_id, item_id, target=update.target, priority=update.priority, status=update.status)
+    updated_item = update_mock_action_item(
+        board_id,
+        item_id,
+        target=update.target,
+        priority=update.priority,
+        status=update.status,
+    )
 
     if updated_item is None:
         raise HTTPException(

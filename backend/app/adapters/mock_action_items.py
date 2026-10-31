@@ -1,4 +1,4 @@
-from app.schemas.action_item import ActionItem
+from app.schemas.action_item import ActionItem, ActionItemCreate
 
 # temporary action items for the development until real project data is available
 MOCK_ACTION_ITEMS = {
@@ -37,6 +37,32 @@ def get_mock_action_items(board_id: str) -> list[ActionItem]:
     return MOCK_ACTION_ITEMS.get(board_id, [])
 
 
+# create an action item for the selected board
+def create_mock_action_item(
+    board_id: str,
+    new_item: ActionItemCreate,
+) -> ActionItem:
+    items = MOCK_ACTION_ITEMS.setdefault(board_id, [])
+
+    # Generate an ID unique within the selected board.
+    next_id = max((item.id for item in items), default=0) + 1
+
+    created_item = ActionItem(
+        id=next_id,
+        section=new_item.section,
+        priority=new_item.priority,
+        title=new_item.title,
+        owners=[],
+        target=new_item.target,
+        hardDate=None,
+        status=new_item.status,
+        attention=False,
+    )
+
+    items.append(created_item)
+    return created_item
+
+
 def update_mock_action_item(
     board_id: str,
     item_id: int,
@@ -57,6 +83,7 @@ def update_mock_action_item(
 
             return item
     return None
+
 
 from copy import deepcopy
 

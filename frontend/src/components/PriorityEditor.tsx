@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 export type PriorityLevel = {
   name: string;
@@ -18,13 +18,15 @@ export default function PriorityEditor({
   onSave,
 }: PriorityEditorProps) {
   const [selected, setSelected] = useState(value);
+  const [previousValue, setPreviousValue] = useState(value);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   // Synchronize changes from the Action Items Table.
-  useEffect(() => {
+  if (value !== previousValue) {
+    setPreviousValue(value);
     setSelected(value);
-  }, [value]);
+  }
 
   async function handleChange(
     event: React.ChangeEvent<HTMLSelectElement>

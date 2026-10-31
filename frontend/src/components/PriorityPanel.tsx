@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from "react";
 import PriorityEditor from "./PriorityEditor";
-import { announcePriorityUpdate, subscribeToPriorityUpdates } from "../services/priorityEvents";
+import { announcePriorityUpdate, subscribeToPriorityUpdates, subscribeToActionItemCreated } from "../services/priorityEvents";
 import {
   getPriorities,
   getPriorityItems,
@@ -78,6 +78,35 @@ export default function PriorityPanel({ boardId }: PriorityPanelProps) {
     );
   }, [boardId]);
 
+  // refresh priorities when a new action item is created
+  useEffect(() => {
+    let active = true;
+
+    const unsubscribe = subscribeToActionItemCreated(
+      ({ boardId: updatedBoardId }) => {
+        if (updatedBoardId !== boardId) return;
+
+        void getPriorityItems(boardId)
+          .then((updatedItems) => {
+            if (active) {
+              setItems(updatedItems);
+            }
+          })
+          .catch((error) => {
+            console.error("Error refreshing priorities:", error);
+            if (active) {
+              setError("Unable to refresh priorities.");
+            }
+          });
+      }
+    );
+
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [boardId]);
+
   async function updateItem(itemId: number, priority: string) {
     const saved = await saveItemPriority(boardId, itemId, priority);
 
@@ -104,16 +133,16 @@ export default function PriorityPanel({ boardId }: PriorityPanelProps) {
   // Sort according to configured rank: High, Medium, Low.
   const displayedItems = sortByPriority
     ? [...filteredItems].sort((a, b) => {
-        const rankA =
-          levels.find((level) => level.name === a.priority)?.rank ??
-          Number.MAX_SAFE_INTEGER;
+      const rankA =
+        levels.find((level) => level.name === a.priority)?.rank ??
+        Number.MAX_SAFE_INTEGER;
 
-        const rankB =
-          levels.find((level) => level.name === b.priority)?.rank ??
-          Number.MAX_SAFE_INTEGER;
+      const rankB =
+        levels.find((level) => level.name === b.priority)?.rank ??
+        Number.MAX_SAFE_INTEGER;
 
-        return rankA - rankB;
-      })
+      return rankA - rankB;
+    })
     : filteredItems;
 
   if (loading) return <p role="status">Loading priorities...</p>;
