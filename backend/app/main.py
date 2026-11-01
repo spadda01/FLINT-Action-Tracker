@@ -1,9 +1,11 @@
 import os
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Body, Depends, FastAPI, Header, HTTPException
 
+from app.adapters.action_items import MockActionItemRepository
 from app.adapters.boards import BoardRepository, MockBoardRepository
 from app.api.boards import get_board_service, router as boards_router
+from app.schemas.action_items import ActionItem, TargetUpdate
 from app.schemas.board import BoardSummary
 from app.schemas.boards import Board
 from app.services.board_service import BoardService
@@ -12,6 +14,7 @@ from app.services.service_factory import create_services
 
 app = FastAPI(title="FLINT Action Tracker API")
 services = create_services()
+action_item_repository = MockActionItemRepository()
 
 # Map our board-list mock identities to the shared employee adapter's IDs.
 MOCK_EMPLOYEE_IDS = {
@@ -62,6 +65,21 @@ def created_board_summary(board: dict) -> BoardSummary:
     )
 
 
+def has_board_access(
+    board_id: str,
+    user_id: str,
+    repository: BoardRepository,
+    service: BoardService,
+) -> bool:
+    if any(board.id == board_id for board in list_accessible_boards(user_id, repository)):
+        return True
+
+    saved_board = service.get_board(board_id)
+    return bool(
+        saved_board and can_open_created_board(saved_board, user_id, service)
+    )
+
+
 # Keep team-board creation on the shared router, with mock identity checks.
 app.include_router(boards_router, dependencies=[Depends(get_current_user_id)])
 
@@ -103,6 +121,52 @@ def get_board(
     if saved_board and can_open_created_board(saved_board, user_id, service):
         return Board.model_validate(saved_board)
     raise HTTPException(status_code=404, detail="Board not found.")
+
+
+def require_board_access(
+    board_id: str,
+    user_id: str,
+    repository: BoardRepository,
+    service: BoardService,
+) -> None:
+    require_mock_mode()
+    if not has_board_access(board_id, user_id, repository, service):
+        raise HTTPException(status_code=404, detail="Board not found.")
+
+
+@app.get(
+    "/api/boards/{board_id}/items",
+    response_model=list[ActionItem],
+)
+def get_action_items(
+    board_id: str,
+    user_id: str = Depends(get_current_user_id),
+    repository: BoardRepository = Depends(get_board_repository),
+    service: BoardService = Depends(get_board_service),
+) -> list[ActionItem]:
+    require_board_access(board_id, user_id, repository, service)
+    return action_item_repository.list_items(board_id)
+
+
+@app.patch(
+    "/api/boards/{board_id}/items/{item_id}/target",
+    response_model=ActionItem,
+)
+def update_action_item_target(
+    board_id: str,
+    item_id: str,
+    data: TargetUpdate = Body(),
+    user_id: str = Depends(get_current_user_id),
+    repository: BoardRepository = Depends(get_board_repository),
+    service: BoardService = Depends(get_board_service),
+) -> ActionItem:
+    require_board_access(board_id, user_id, repository, service)
+    updated = action_item_repository.update_target(
+        board_id, item_id, data.target,
+    )
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Action item not found.")
+    return updated
 
 
 def check_access(x_mock_role: str = Header(default="viewer")):

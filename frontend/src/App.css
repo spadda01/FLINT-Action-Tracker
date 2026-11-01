@@ -75,6 +75,76 @@
     width: 55%;
 }
 
+.action-items {
+    overflow-x: auto;
+}
+
+.action-items th:first-child {
+    width: 35%;
+}
+
+.action-items td input,
+.action-items td textarea,
+.action-items td select,
+.action-items td button,
+.target-sort {
+    min-height: 40px;
+    padding: 8px 10px;
+    border: 1px solid #768796;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #193650;
+}
+
+.action-items td input {
+    width: 100%;
+}
+
+.action-items td textarea {
+    width: 100%;
+    min-height: 64px;
+    resize: vertical;
+    font: inherit;
+}
+
+.action-items td button,
+.target-sort {
+    cursor: pointer;
+}
+
+.action-items td button:focus-visible,
+.action-items td input:focus-visible,
+.action-items td textarea:focus-visible,
+.action-items td select:focus-visible,
+.target-sort:focus-visible {
+    outline: 3px solid #00699e;
+    outline-offset: 3px;
+}
+
+.action-items td button:disabled {
+    cursor: wait;
+}
+
+.action-items td p {
+    margin: 8px 0 0;
+}
+
+.target-sort {
+    margin-bottom: 12px;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
 .board-list tbody tr:last-child td {
     border-bottom: none;
 }

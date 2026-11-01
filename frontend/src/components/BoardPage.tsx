@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Board } from '../boards'
 import {BoardRequestError, loadBoard} from '../services/boardService'
+import ActionItemsTable from './ActionItemsTable'
 
 type BoardPageProps = {
     boardId: string
@@ -107,10 +108,7 @@ function BoardPage({ boardId, onOpened }: BoardPageProps) {
                         </div>
                     </dl>
 
-                    <p>
-                        Board overview. The action-item table will be connected
-                        here in a later task.
-                    </p>
+                    <ActionItemsTable boardId={board.id} />
                 </section>
             )}
         </>

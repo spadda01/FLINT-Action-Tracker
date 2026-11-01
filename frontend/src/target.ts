@@ -3,10 +3,9 @@ export type Target =
   | { type: "date"; value: string } // ISO date, e.g. "2026-10-26"
   | { type: "datetime"; value: Date };
 
-export interface TargetDisplay {
-  type: "text" | "date";
-  value: string;
-}
+export type TargetDisplay =
+  | { type: "text"; value: string }
+  | { type: "date"; value: string };
 
 export function targetFromInput(type: "text", value: string): Extract<Target, { type: "text" }>;
 export function targetFromInput(type: "date", value: string): Extract<Target, { type: "date" }>;

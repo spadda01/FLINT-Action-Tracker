@@ -49,6 +49,10 @@ beforeEach(() => {
             return json(boards)
         }
 
+        if (path.endsWith('/items')) {
+            return json([])
+        }
+
         return json({}, 404)
     }))
 })
@@ -139,6 +143,10 @@ test('keyboard selection opens the correct board and records its history', async
 
         if (path === '/api/boards') {
             return json(boards)
+        }
+
+        if (path.endsWith('/items')) {
+            return json([])
         }
 
         const board = boards.find(
@@ -322,6 +330,10 @@ test('a board denied after listing does not enter history, and Retry recovers', 
 
         if (path === '/api/boards') {
             return json(boards)
+        }
+
+        if (path.endsWith('/items')) {
+            return json([])
         }
 
         if (path === '/api/boards/project-1' && !denyBoard) {
