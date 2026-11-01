@@ -1,16 +1,17 @@
 .page {
   	width: 1440px;
-  	height: 1024px;
+  	min-height: 1024px;
   	background-color: #fff;
   	position: relative;
   	overflow: hidden;
 }
 .projectBoardTable {
   	width: 100%;
-  	height: 900px;
+  	min-height: 900px;
   	position: relative;
   	background-color: #f5f8fa;
-  	overflow: hidden;
+  	padding: 248px 32px 32px 272px;
+  	box-sizing: border-box;
   	text-align: left;
   	font-size: 14px;
   	color: #334155;
@@ -22,7 +23,7 @@
   	left: 0px;
   	background-color: #fff;
   	width: 240px;
-  	height: 900px;
+  	bottom: 0px;
 }
 .myItems {
   	position: absolute;
@@ -108,31 +109,6 @@
   	width: 48px;
   	height: 3px;
 }
-.searchControl {
-  	position: absolute;
-  	top: 176px;
-  	left: 272px;
-  	width: 320px;
-  	height: 40px;
-  	cursor: pointer;
-  	color: #526579;
-}
-.searchField {
-  	position: absolute;
-  	top: 0px;
-  	left: 0px;
-  	border-radius: 6px;
-  	background-color: #fff;
-  	border: 1px solid #dce5eb;
-  	box-sizing: border-box;
-  	width: 320px;
-  	height: 40px;
-}
-.searchItems {
-  	position: absolute;
-  	top: 10px;
-  	left: 14px;
-}
 .openFilterButtons {
   	position: absolute;
   	top: 176px;
@@ -180,314 +156,6 @@
   	top: 10px;
   	left: 26px;
 }
-.sectionEarlyProcurement {
-  	position: absolute;
-  	top: 248px;
-  	left: 272px;
-  	width: 1136px;
-  	height: 272px;
-  	font-size: 12px;
-}
-.earlyProcurementItems {
-  	position: absolute;
-  	top: 0px;
-  	left: 0px;
-  	font-size: 18px;
-  	color: #006098;
-  	display: inline-block;
-  	width: 215px;
-  	cursor: pointer;
-}
-.items {
-  	position: absolute;
-  	top: 4px;
-  	left: 264px;
-  	color: #526579;
-}
-.procurementHeaderTable {
-  	position: absolute;
-  	top: 40px;
-  	left: 0px;
-  	background-color: #e6f0f5;
-  	width: 1136px;
-  	height: 40px;
-}
-.item {
-  	position: absolute;
-  	top: 52px;
-  	left: 40px;
-}
-.owners {
-  	position: absolute;
-  	top: 52px;
-  	left: 408px;
-}
-.target {
-  	position: absolute;
-  	top: 52px;
-  	left: 608px;
-}
-.status {
-  	position: absolute;
-  	top: 52px;
-  	left: 808px;
-}
-.priority {
-  	position: absolute;
-  	top: 52px;
-  	left: 960px;
-}
-.attention {
-  	position: absolute;
-  	top: 52px;
-  	left: 1040px;
-}
-.itemRow1 {
-  	position: absolute;
-  	top: 80px;
-  	left: 0px;
-  	width: 1136px;
-  	height: 64px;
-}
-.item1Background {
-  	position: absolute;
-  	top: 0px;
-  	left: 0px;
-  	background-color: #fff;
-  	width: 1136px;
-  	height: 64px;
-}
-.bottomDivider {
-  	position: absolute;
-  	top: 63px;
-  	left: 0px;
-  	background-color: #dce5eb;
-  	width: 1136px;
-  	height: 1px;
-}
-.div {
-  	position: absolute;
-  	top: 20px;
-  	left: 12px;
-  	font-size: 16px;
-  	color: #526579;
-}
-.confirmEquipmentLead {
-  	position: absolute;
-  	top: 20px;
-  	left: 40px;
-  	font-size: 14px;
-  	color: #17324d;
-}
-.marandaJim {
-  	position: absolute;
-  	top: 21px;
-  	left: 408px;
-}
-.beforeJobWalk {
-  	position: absolute;
-  	top: 20px;
-  	left: 608px;
-  	font-size: 14px;
-}
-.statusButton {
-  	position: absolute;
-  	top: 16px;
-  	left: 808px;
-  	width: 128px;
-  	height: 32px;
-  	cursor: pointer;
-  	color: #006098;
-}
-.statusButtonChild {
-  	position: absolute;
-  	top: 0px;
-  	left: 0px;
-  	border-radius: 4px;
-  	background-color: #e6f0f5;
-  	width: 128px;
-  	height: 32px;
-}
-.inProgress {
-  	position: absolute;
-  	top: 7px;
-  	left: 14px;
-}
-.itemRow1Child {
-  	position: absolute;
-  	top: 20px;
-  	left: 964px;
-  	border-radius: 50%;
-  	background-color: #c43d3d;
-  	width: 10px;
-  	height: 10px;
-}
-.high {
-  	position: absolute;
-  	top: 37px;
-  	left: 960px;
-}
-.itemRow1Item {
-  	position: absolute;
-  	top: 20px;
-  	left: 1065px;
-  	border-radius: 3px;
-  	background-color: #fff2cc;
-  	border: 1px solid #9a7400;
-  	box-sizing: border-box;
-  	width: 20px;
-  	height: 20px;
-}
-.div2 {
-  	position: absolute;
-  	top: 19px;
-  	left: 1068px;
-  	font-size: 16px;
-  	color: #785b00;
-}
-.itemRow2 {
-  	position: absolute;
-  	top: 144px;
-  	left: 0px;
-  	width: 1136px;
-  	height: 64px;
-}
-.itemRow2Child {
-  	position: absolute;
-  	top: 16px;
-  	left: 808px;
-  	border-radius: 4px;
-  	background-color: #e6f0f5;
-  	width: 128px;
-  	height: 32px;
-}
-.scheduled {
-  	position: absolute;
-  	top: 23px;
-  	left: 822px;
-  	color: #006098;
-}
-.itemRow2Item {
-  	position: absolute;
-  	top: 20px;
-  	left: 964px;
-  	border-radius: 50%;
-  	background-color: #c77700;
-  	width: 10px;
-  	height: 10px;
-}
-.itemRow2Inner {
-  	position: absolute;
-  	top: 20px;
-  	left: 1065px;
-  	border-radius: 3px;
-  	background-color: #fff;
-  	border: 1px solid #dce5eb;
-  	box-sizing: border-box;
-  	width: 20px;
-  	height: 20px;
-}
-.itemRow3 {
-  	position: absolute;
-  	top: 208px;
-  	left: 0px;
-  	width: 1136px;
-  	height: 64px;
-  	color: #526579;
-}
-.div4 {
-  	position: absolute;
-  	top: 20px;
-  	left: 12px;
-  	font-size: 16px;
-}
-.confirmVendorContact {
-  	position: absolute;
-  	top: 20px;
-  	left: 40px;
-  	font-size: 14px;
-  	text-decoration: line-through;
-}
-.marandaKristy {
-  	position: absolute;
-  	top: 21px;
-  	left: 408px;
-  	color: #334155;
-}
-.itemRow3Child {
-  	position: absolute;
-  	top: 16px;
-  	left: 808px;
-  	border-radius: 4px;
-  	background-color: #eaf5dd;
-  	width: 128px;
-  	height: 32px;
-}
-.complete {
-  	position: absolute;
-  	top: 23px;
-  	left: 822px;
-  	color: #365a10;
-}
-.itemRow3Item {
-  	position: absolute;
-  	top: 20px;
-  	left: 964px;
-  	border-radius: 50%;
-  	background-color: #76bc21;
-  	width: 10px;
-  	height: 10px;
-}
-.low {
-  	position: absolute;
-  	top: 37px;
-  	left: 960px;
-  	color: #365a10;
-}
-.sectionCoordination {
-  	position: absolute;
-  	top: 552px;
-  	left: 272px;
-  	width: 1136px;
-  	height: 272px;
-  	font-size: 12px;
-}
-.coordinationAndFollowUps {
-  	position: absolute;
-  	top: 0px;
-  	left: 0px;
-  	font-size: 18px;
-  	color: #006098;
-  	display: inline-block;
-  	width: 254px;
-}
-.itemRow2Child2 {
-  	position: absolute;
-  	top: 16px;
-  	left: 808px;
-  	border-radius: 4px;
-  	background-color: #fff2cc;
-  	width: 128px;
-  	height: 32px;
-}
-.outstanding {
-  	position: absolute;
-  	top: 23px;
-  	left: 822px;
-  	color: #785b00;
-}
-.afterOacMeeting {
-  	position: absolute;
-  	top: 20px;
-  	left: 608px;
-  	font-size: 14px;
-  	color: #334155;
-}
-.notStarted {
-  	position: absolute;
-  	top: 23px;
-  	left: 822px;
-}
 .flintText {
   	position: absolute;
   	top: 24px;
@@ -518,3 +186,165 @@
   	height: 54px;
 }
 
+.searchInput {
+  	position: absolute;
+  	top: 176px;
+  	left: 272px;
+  	width: 320px;
+  	height: 40px;
+  	border-radius: 6px;
+  	background-color: #fff;
+  	border: 1px solid #dce5eb;
+  	box-sizing: border-box;
+  	padding: 0 14px;
+  	font-family: inherit;
+  	font-size: 14px;
+  	color: #334155;
+}
+.searchInput::placeholder {
+  	color: #526579;
+}
+.sections {
+  	display: flex;
+  	flex-direction: column;
+  	gap: 32px;
+  	width: 1136px;
+  	font-size: 12px;
+}
+.section {
+  	position: relative;
+}
+.sectionHeader {
+  	display: flex;
+  	align-items: baseline;
+  	gap: 24px;
+  	height: 40px;
+}
+.sectionTitle {
+  	font-size: 18px;
+  	color: #006098;
+}
+.sectionCount {
+  	color: #526579;
+}
+.tableHead {
+  	position: relative;
+  	height: 40px;
+  	background-color: #e6f0f5;
+}
+.headCell {
+  	position: absolute;
+  	top: 12px;
+}
+.colItem { left: 40px; }
+.colOwners { left: 408px; }
+.colTarget { left: 608px; }
+.colStatus { left: 808px; }
+.colPriority { left: 960px; }
+.colAttention { left: 1040px; }
+.rows {
+  	position: relative;
+  	min-height: 64px;
+}
+.emptyRow {
+  	height: 64px;
+  	line-height: 64px;
+  	text-align: center;
+  	background-color: #fff;
+  	color: #526579;
+}
+.row {
+  	position: relative;
+  	height: 64px;
+  	box-sizing: border-box;
+  	background-color: #fff;
+  	border-bottom: 1px solid #dce5eb;
+  	cursor: grab;
+}
+.dragging {
+  	opacity: 0.4;
+}
+.dropBefore::before,
+.dropEnd::after {
+  	content: '';
+  	position: absolute;
+  	left: 0;
+  	right: 0;
+  	height: 3px;
+  	background-color: #006098;
+  	z-index: 1;
+  	pointer-events: none;
+}
+.dropBefore::before {
+  	top: -1px;
+}
+.dropEnd::after {
+  	bottom: -1px;
+}
+.handle {
+  	position: absolute;
+  	top: 20px;
+  	left: 12px;
+  	font-size: 16px;
+  	color: #526579;
+}
+.cell {
+  	position: absolute;
+  	top: 21px;
+  	overflow: hidden;
+  	text-overflow: ellipsis;
+  	white-space: nowrap;
+}
+.titleText {
+  	top: 20px;
+  	width: 352px;
+  	font-size: 14px;
+  	color: #17324d;
+}
+.ownersText {
+  	width: 192px;
+}
+.targetText {
+  	top: 20px;
+  	width: 192px;
+  	font-size: 14px;
+}
+.hardDate {
+  	font-size: 11px;
+  	color: #526579;
+}
+.done .titleText {
+  	text-decoration: line-through;
+  	color: #526579;
+}
+.statusButton {
+  	position: absolute;
+  	top: 16px;
+  	left: 808px;
+  	width: 128px;
+  	height: 32px;
+  	border-radius: 4px;
+  	box-sizing: border-box;
+  	padding-left: 14px;
+  	display: flex;
+  	align-items: center;
+  	cursor: pointer;
+}
+.priorityDot {
+  	position: absolute;
+  	top: 20px;
+  	left: 964px;
+  	width: 10px;
+  	height: 10px;
+  	border-radius: 50%;
+}
+.priorityLabel {
+  	position: absolute;
+  	top: 37px;
+  	left: 960px;
+}
+.attentionBox {
+  	position: absolute;
+  	top: 20px;
+  	left: 1065px;
+}

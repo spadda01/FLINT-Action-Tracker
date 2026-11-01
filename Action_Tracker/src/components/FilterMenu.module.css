@@ -36,6 +36,7 @@
   	font-size: 14px;
 }
 .attentionItemsOnly {
+  	cursor: pointer;
   	position: absolute;
   	top: 0px;
   	left: 32px;
@@ -44,12 +45,6 @@
   	position: absolute;
   	top: 0px;
   	left: 0px;
-  	border-radius: 3px;
-  	background-color: #fff;
-  	border: 1px solid #dce5eb;
-  	box-sizing: border-box;
-  	width: 20px;
-  	height: 20px;
 }
 .clearButton {
   	position: absolute;

@@ -1,28 +1,33 @@
-import { useCallback } from 'react';
 import type { FunctionComponent } from 'react';
 import styles from './StatusMenu.module.css';
+import type { Status } from '../types';
 
 export type StatusMenuType = {
   	className?: string;
-  	onClose?: () => void;
+  	current?: Status;
+  	onSelect?: (status: Status) => void;
 }
 
+const OPTIONS: { status: Status; className: string }[] = [
+  	{ status: 'Not Started', className: styles.notStarted },
+  	{ status: 'In Progress', className: styles.inProgress },
+  	{ status: 'Scheduled', className: styles.scheduled },
+  	{ status: 'Complete', className: styles.complete },
+  	{ status: 'Outstanding', className: styles.outstanding },
+];
 
-
-const StatusMenu: FunctionComponent<StatusMenuType> = ({ className="", onClose }) => {
-  	
-  	const onStatusMenuContainerClick = useCallback(() => {
-    		onClose?.();
-  	}, [onClose]);
-  	
+const StatusMenu: FunctionComponent<StatusMenuType> = ({ className="", current, onSelect }) => {
   	return (
-    		<div className={[styles.statusMenu, className].join(' ')} onClick={onStatusMenuContainerClick}>
+    		<div className={[styles.statusMenu, className].join(' ')}>
       			<div className={styles.open}>Open</div>
-      			<div className={styles.notStarted}>Not Started</div>
-      			<div className={styles.inProgress}>In Progress</div>
-      			<div className={styles.scheduled}>Scheduled</div>
-      			<div className={styles.outstanding}>Outstanding</div>
-      			<div className={styles.complete}>Complete</div>
+      			{OPTIONS.map(({ status, className: optionClass }) => (
+        				<div
+          					key={status}
+          					className={[optionClass, styles.option, status === current ? styles.current : ''].join(' ')}
+          					onClick={() => onSelect?.(status)}>
+          					{status}
+        				</div>
+      			))}
     		</div>);
 };
 

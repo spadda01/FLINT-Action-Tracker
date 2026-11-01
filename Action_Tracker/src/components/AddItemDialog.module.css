@@ -19,13 +19,6 @@
   	font-size: 22px;
   	color: #17324d;
 }
-.x {
-  	position: absolute;
-  	top: 24px;
-  	left: 476px;
-  	font-size: 24px;
-  	color: #526579;
-}
 .itemTitle {
   	position: absolute;
   	top: 80px;
@@ -37,6 +30,10 @@
   	left: 24px;
 }
 .titleInput {
+  	padding: 0 12px;
+  	font-family: inherit;
+  	font-size: 14px;
+  	color: #334155;
   	position: absolute;
   	top: 108px;
   	left: 24px;
@@ -48,6 +45,10 @@
   	height: 40px;
 }
 .sectionInput {
+  	padding: 0 12px;
+  	font-family: inherit;
+  	font-size: 14px;
+  	color: #334155;
   	position: absolute;
   	top: 196px;
   	left: 24px;
@@ -57,17 +58,6 @@
   	box-sizing: border-box;
   	width: 472px;
   	height: 40px;
-}
-.enterAnAction {
-  	position: absolute;
-  	top: 118px;
-  	left: 36px;
-  	color: #526579;
-}
-.earlyProcurementItems {
-  	position: absolute;
-  	top: 206px;
-  	left: 36px;
 }
 .owners {
   	position: absolute;
@@ -85,6 +75,10 @@
   	left: 268px;
 }
 .ownersInput {
+  	padding: 0 12px;
+  	font-family: inherit;
+  	font-size: 14px;
+  	color: #334155;
   	position: absolute;
   	top: 280px;
   	left: 24px;
@@ -96,6 +90,10 @@
   	height: 40px;
 }
 .targetInput {
+  	padding: 0 12px;
+  	font-family: inherit;
+  	font-size: 14px;
+  	color: #334155;
   	position: absolute;
   	top: 368px;
   	left: 24px;
@@ -106,7 +104,11 @@
   	width: 228px;
   	height: 40px;
 }
-.addItemDialogChild {
+.hardDateInput {
+  	padding: 0 12px;
+  	font-family: inherit;
+  	font-size: 14px;
+  	color: #334155;
   	position: absolute;
   	top: 368px;
   	left: 268px;
@@ -117,28 +119,10 @@
   	width: 228px;
   	height: 40px;
 }
-.selectStaffOr {
-  	position: absolute;
-  	top: 290px;
-  	left: 36px;
-  	color: #526579;
-}
-.egBeforeJob {
-  	position: absolute;
-  	top: 378px;
-  	left: 36px;
-  	color: #526579;
-}
 .priority {
   	position: absolute;
   	top: 428px;
   	left: 268px;
-}
-.selectDate {
-  	position: absolute;
-  	top: 378px;
-  	left: 280px;
-  	color: #526579;
 }
 .multipleOwnersAllowed {
   	position: absolute;
@@ -153,6 +137,10 @@
   	left: 24px;
 }
 .statusInput {
+  	padding: 0 12px;
+  	font-family: inherit;
+  	font-size: 14px;
+  	color: #334155;
   	position: absolute;
   	top: 456px;
   	left: 24px;
@@ -164,6 +152,10 @@
   	height: 40px;
 }
 .priorityInput {
+  	padding: 0 12px;
+  	font-family: inherit;
+  	font-size: 14px;
+  	color: #334155;
   	position: absolute;
   	top: 456px;
   	left: 268px;
@@ -173,27 +165,6 @@
   	box-sizing: border-box;
   	width: 228px;
   	height: 40px;
-}
-.notStarted {
-  	position: absolute;
-  	top: 466px;
-  	left: 36px;
-}
-.medium {
-  	position: absolute;
-  	top: 466px;
-  	left: 280px;
-}
-.attentionCheckbox {
-  	position: absolute;
-  	top: 516px;
-  	left: 24px;
-  	border-radius: 3px;
-  	background-color: #fff;
-  	border: 1px solid #dce5eb;
-  	box-sizing: border-box;
-  	width: 20px;
-  	height: 20px;
 }
 .attentionThisWeek {
   	position: absolute;
@@ -207,6 +178,34 @@
   	width: 228px;
   	height: 40px;
 }
+
+.addItemDialog input::placeholder {
+  	color: #526579;
+}
+.addItemDialog label {
+  	cursor: default;
+}
+.x {
+  	position: absolute;
+  	top: 24px;
+  	left: 476px;
+  	padding: 0;
+  	border: none;
+  	background: none;
+  	font-family: inherit;
+  	font-size: 24px;
+  	line-height: 1;
+  	color: #526579;
+  	cursor: pointer;
+}
+.attentionCheckbox {
+  	position: absolute;
+  	top: 516px;
+  	left: 24px;
+}
+.attentionThisWeek {
+  	cursor: pointer;
+}
 .cancel {
   	position: absolute;
   	top: 0px;
@@ -216,24 +215,25 @@
   	box-sizing: border-box;
   	width: 104px;
   	height: 40px;
+  	font-family: inherit;
+  	font-size: 14px;
+  	color: #334155;
+  	cursor: pointer;
 }
 .addItem {
   	position: absolute;
   	top: 0px;
   	left: 120px;
   	background-color: #006098;
+  	border: none;
   	width: 108px;
   	height: 40px;
-}
-.cancel2 {
-  	position: absolute;
-  	top: 10px;
-  	left: 28px;
-}
-.addItem2 {
-  	position: absolute;
-  	top: 10px;
-  	left: 146px;
+  	font-family: inherit;
+  	font-size: 14px;
   	color: #fff;
+  	cursor: pointer;
 }
-
+.addItem:disabled {
+  	opacity: 0.5;
+  	cursor: not-allowed;
+}
