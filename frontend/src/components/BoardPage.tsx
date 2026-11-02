@@ -1,25 +1,22 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Board } from '../boards'
 import { BoardRequestError, loadBoard } from '../services/boardService'
-import QuickAddItem from './QuickAddItem'
+import ActionItemsTable from './ActionItemsTable'
+import PriorityPanel from './PriorityPanel'
 
 type BoardPageProps = {
     boardId: string
     onOpened: (boardId: string) => void
 }
 
-type QuickItem = {
-    text: string
-    status: 'Open'
-    priority: 'Medium'
-}
+
 
 function BoardPage({ boardId, onOpened }: BoardPageProps) {
     const [board, setBoard] = useState<Board | null>(null)
     const [error, setError] = useState('')
     const [isLoading, setIsLoading] = useState(true)
     const [attempt, setAttempt] = useState(0)
-    const [items, setItems] = useState<QuickItem[]>([])
+    
 
     const heading = useRef<HTMLHeadingElement>(null)
 
@@ -114,30 +111,9 @@ function BoardPage({ boardId, onOpened }: BoardPageProps) {
                         </div>
                     </dl>
 
-                    <div>
-                        <h3>Actions</h3>
-
-                        <QuickAddItem
-                            onAdd={(actionText) => {
-                                setItems((currentItems) => [
-                                    ...currentItems,
-                                    {
-                                        text: actionText,
-                                        status: 'Open',
-                                        priority: 'Medium',
-                                    },
-                                ])
-                            }}
-                        />
-
-                        <ul>
-                            {items.map((item, index) => (
-                                <li key={`${item.text}-${index}`}>
-                                    {item.text} — Status: {item.status} — Priority: {item.priority}
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
+                    {/* display the action items after the selected board loads. */}
+                    <ActionItemsTable boardId={board.id} />
+                    <PriorityPanel boardId={board.id} />
                 </section>
             )}
         </>
