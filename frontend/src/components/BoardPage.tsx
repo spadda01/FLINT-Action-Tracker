@@ -9,15 +9,11 @@ type BoardPageProps = {
     onOpened: (boardId: string) => void
 }
 
-
-
 function BoardPage({ boardId, onOpened }: BoardPageProps) {
     const [board, setBoard] = useState<Board | null>(null)
     const [error, setError] = useState('')
     const [isLoading, setIsLoading] = useState(true)
     const [attempt, setAttempt] = useState(0)
-    
-
     const heading = useRef<HTMLHeadingElement>(null)
 
     useEffect(() => {
@@ -29,6 +25,7 @@ function BoardPage({ boardId, onOpened }: BoardPageProps) {
             setError('')
 
             try {
+                //check server access again when opening a board
                 const result = await loadBoard(boardId)
 
                 if (active) {
@@ -52,6 +49,7 @@ function BoardPage({ boardId, onOpened }: BoardPageProps) {
 
         void fetchBoard()
 
+        // ignore an old request if the user leaves this board.
         return () => {
             active = false
         }
