@@ -1,3 +1,5 @@
+import time
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -282,3 +284,34 @@ def test_real_clock_records_utc_time():
 
     changed_at = datetime.fromisoformat(result["change"]["changedAt"])
     assert changed_at.utcoffset().total_seconds() == 0
+
+
+# --- Two users at once ---
+
+class SlowItemStore(InMemoryActionItemStore):
+    # Pauses after reading so a second change can start in between,
+    # the way two requests can overlap on the real server.
+    def get_item(self, board_id, item_id):
+        item = super().get_item(board_id, item_id)
+        time.sleep(0.05)
+        return item
+
+
+def test_two_users_changing_the_same_item_at_once_keep_history_in_order():
+    from concurrent.futures import ThreadPoolExecutor
+
+    service = StatusService(SlowItemStore(), InMemoryStatusHistoryStore())
+    changes = [("user-1", "Scheduled"), ("user-2", "Complete")]
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        for actor, status in changes:
+            pool.submit(service.change_status, "project-1", 2, status, actor)
+
+    entries = list(reversed(service.get_history("project-1", 2)))
+
+    # Each change starts from the status the previous one saved.
+    assert len(entries) == 2
+    assert entries[0]["oldStatus"] == "Not Started"
+    assert entries[1]["oldStatus"] == entries[0]["newStatus"]
+    assert service.get_item("project-1", 2)["status"] == entries[1]["newStatus"]
+    assert {e["actorId"] for e in entries} == {"user-1", "user-2"}

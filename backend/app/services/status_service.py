@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from threading import Lock
 
 # Initial statuses agreed with the client for story 5.3, in display order.
 DEFAULT_STATUSES = [
@@ -31,6 +32,9 @@ class StatusService:
         self.items = items
         self.history = history
         self.now = now
+        # Requests run on separate threads. Only one status change at a time,
+        # so each history entry's old status is the one the last change saved.
+        self._change_lock = Lock()
 
     # Every board uses the default list for now; this is where a board's
     # own status list would be looked up once boards can configure one.
@@ -54,22 +58,25 @@ class StatusService:
                 f"{new_status} is not a status on this board. Choose one of: {', '.join(allowed)}."
             )
 
-        item = self.get_item(board_id, item_id)
-        old_status = item["status"]
+        # Read, save and record as one step, so two users changing the same
+        # item at once can't both read the same old status.
+        with self._change_lock:
+            item = self.get_item(board_id, item_id)
+            old_status = item["status"]
 
-        # Picking the same status again changes nothing, so no history row.
-        if old_status == new_status:
-            return {"item": item, "change": None}
+            # Picking the same status again changes nothing, so no history row.
+            if old_status == new_status:
+                return {"item": item, "change": None}
 
-        updated = self.items.save_status(board_id, item_id, new_status)
-        change = self.history.add_entry({
-            "itemId": item_id,
-            "boardId": board_id,
-            "actorId": actor_id,
-            "changedAt": self.now(),
-            "oldStatus": old_status,
-            "newStatus": new_status,
-        })
+            updated = self.items.save_status(board_id, item_id, new_status)
+            change = self.history.add_entry({
+                "itemId": item_id,
+                "boardId": board_id,
+                "actorId": actor_id,
+                "changedAt": self.now(),
+                "oldStatus": old_status,
+                "newStatus": new_status,
+            })
 
         return {"item": updated, "change": change}
 

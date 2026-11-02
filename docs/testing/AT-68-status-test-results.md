@@ -7,13 +7,13 @@ Tested by: Fahim · Date: 2026-10-29 · Branch: `Fahim/AT-68` · Data: mocks onl
 
 | Area | Tests | Passed | Failed |
 |---|---|---|---|
-| Status API (backend, pytest, `tests/test_item_status.py`) | 36 | 36 | 0 |
+| Status API (backend, pytest, `tests/test_item_status.py`) | 37 | 37 | 0 |
 | Status chooser (frontend, Vitest, `StatusChooser.test.tsx`) | 19 | 19 | 0 |
 | Status service (frontend, `itemStatusService.test.ts`) | 14 | 14 | 0 |
 | Chooser and service together (frontend, `StatusChooser.integration.test.tsx`) | 7 | 7 | 0 |
-| **Total for this story** | **76** | **76** | **0** |
+| **Total for this story** | **77** | **77** | **0** |
 
-Full suites on the branch: backend 121 passed, frontend 70 passed. Lint and build are clean.
+Full suites on the branch: backend 122 passed, frontend 70 passed. Lint and build are clean.
 
 Both client acceptance criteria pass. The chooser is not yet placed in the action items table, because the table is on `SaihajP/AT-8`, which isn't merged yet (see "Not covered yet").
 
@@ -53,6 +53,7 @@ cd frontend && npm test
 | 2.6 | A refused change adds no history | No entry | As expected | Pass | `test_rejected_change_saves_nothing` |
 | 2.7 | History and item agree (same item state) | Latest entry's new status = item status | As expected | Pass | `test_latest_history_entry_matches_the_item_status` |
 | 2.8 | Changes persist between requests | Next request sees the saved status | As expected | Pass | `test_changes_persist_between_requests` |
+| 2.9 | Two users change the same item at once | History is an unbroken chain: each old status is the previous new status | As expected | Pass | `test_two_users_changing_the_same_item_at_once…` |
 
 ### Completion checks (AT-158, AT-159, AT-160)
 
