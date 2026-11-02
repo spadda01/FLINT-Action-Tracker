@@ -1,0 +1,21 @@
+.checkbox {
+  	display: inline-flex;
+  	align-items: center;
+  	justify-content: center;
+  	box-sizing: border-box;
+  	width: 20px;
+  	height: 20px;
+  	padding: 0;
+  	border-radius: 3px;
+  	background-color: #fff;
+  	border: 1px solid #dce5eb;
+  	font-family: inherit;
+  	font-size: 16px;
+  	line-height: 1;
+  	color: #785b00;
+  	cursor: pointer;
+}
+.checked {
+  	background-color: #fff2cc;
+  	border-color: #9a7400;
+}

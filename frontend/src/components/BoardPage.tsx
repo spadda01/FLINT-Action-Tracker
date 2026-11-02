@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Board } from '../boards'
-import {BoardRequestError, loadBoard} from '../services/boardService'
+import { BoardRequestError, loadBoard } from '../services/boardService'
 import ActionItemsTable from './ActionItemsTable'
+import PriorityPanel from './PriorityPanel'
 
 type BoardPageProps = {
     boardId: string
@@ -108,7 +109,9 @@ function BoardPage({ boardId, onOpened }: BoardPageProps) {
                         </div>
                     </dl>
 
+                    {/* display the action items after the selected board loads. */}
                     <ActionItemsTable boardId={board.id} />
+                    <PriorityPanel boardId={board.id} />
                 </section>
             )}
         </>

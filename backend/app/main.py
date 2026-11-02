@@ -2,31 +2,55 @@ import os
 
 from fastapi import Body, Depends, FastAPI, Header, HTTPException
 
-from app.adapters.action_items import MockActionItemRepository
+from app.schemas.action_items import ActionItem, TargetUpdate
+from fastapi import Depends, FastAPI, Header, HTTPException
+from app.api.priorities import router as priorities_router
 from app.adapters.boards import BoardRepository, MockBoardRepository
 from app.api.boards import get_board_service, router as boards_router
-from app.schemas.action_items import ActionItem, TargetUpdate
+from app.api.item_status import get_status_service, router as item_status_router
 from app.schemas.board import BoardSummary
 from app.schemas.boards import Board
 from app.services.board_service import BoardService
 from app.services.boards import list_accessible_boards
 from app.services.service_factory import create_services
+from app.adapters.mock_action_items import (
+    create_mock_action_item,
+    get_mock_action_items,
+    update_mock_action_item,
+)
+from app.schemas.action_item import ActionItem, ActionItemCreate
+from app.services.priority_permissions import can_edit_priority
+from app.services.priority_service import PriorityService
+from app.services.status_service import (
+    ItemNotFoundError,
+    StatusService,
+    StatusValidationError,
+)
+from pydantic import BaseModel
+from app.services.board_access import MOCK_EMPLOYEE_IDS, can_open_created_board
+
+
+class ActionItemUpdate(BaseModel):
+    target: str | None = None
+    priority: str | None = None
+    status: str | None = None
+
 
 app = FastAPI(title="FLINT Action Tracker API")
+app.include_router(priorities_router)
 services = create_services()
-action_item_repository = MockActionItemRepository()
-
-# Map our board-list mock identities to the shared employee adapter's IDs.
-MOCK_EMPLOYEE_IDS = {
-    "user-1": "E001",
-    "user-2": "E002",
-    "user-3": "E003",
-}
+action_item_repository = (
+    create_mock_action_item,
+    get_mock_action_items,
+    update_mock_action_item,
+)
 
 
 def require_mock_mode() -> None:
     if os.getenv("APP_MODE") != "mock":
-        raise HTTPException(status_code=503, detail="Backend integration is not configured.")
+        raise HTTPException(
+            status_code=503, detail="Backend integration is not configured."
+        )
 
 
 def get_current_user_id() -> str:
@@ -42,25 +66,11 @@ def get_board_repository() -> BoardRepository:
     return MockBoardRepository()
 
 
-def can_open_created_board(board: dict, user_id: str, service: BoardService) -> bool:
-    if board.get("isArchived", False):
-        return False
-    employee_id = MOCK_EMPLOYEE_IDS[user_id]
-    group_ids = {
-        group["id"]
-        for group in service.groups.get_groups()
-        if employee_id in group.get("memberIds", [])
-    }
-    return any(
-        (member["type"] == "user" and member["id"] == employee_id)
-        or (member["type"] == "group" and member["id"] in group_ids)
-        for member in board.get("members", [])
-    )
-
-
 def created_board_summary(board: dict) -> BoardSummary:
     return BoardSummary(
-        id=board["id"], name=board["name"], type=board["type"],
+        id=board["id"],
+        name=board["name"],
+        type=board["type"],
         openItemCount=board.get("openItemCount", 0),
     )
 
@@ -82,6 +92,7 @@ def has_board_access(
 
 # Keep team-board creation on the shared router, with mock identity checks.
 app.include_router(boards_router, dependencies=[Depends(get_current_user_id)])
+app.include_router(item_status_router)
 
 
 @app.get("/api/me")
@@ -138,35 +149,80 @@ def require_board_access(
     "/api/boards/{board_id}/items",
     response_model=list[ActionItem],
 )
-def get_action_items(
+@app.get("/api/boards/{board_id}/items", response_model=list[ActionItem])
+def get_board_items(
     board_id: str,
     user_id: str = Depends(get_current_user_id),
     repository: BoardRepository = Depends(get_board_repository),
     service: BoardService = Depends(get_board_service),
 ) -> list[ActionItem]:
     require_board_access(board_id, user_id, repository, service)
-    return action_item_repository.list_items(board_id)
+    return get_mock_action_items(board_id)
 
 
-@app.patch(
-    "/api/boards/{board_id}/items/{item_id}/target",
-    response_model=ActionItem,
-)
-def update_action_item_target(
+# create an action item on a board the current user can access
+@app.post("/api/boards/{board_id}/items", response_model=ActionItem, status_code=201)
+def create_board_item(
     board_id: str,
-    item_id: str,
-    data: TargetUpdate = Body(),
+    new_item: ActionItemCreate,
     user_id: str = Depends(get_current_user_id),
     repository: BoardRepository = Depends(get_board_repository),
     service: BoardService = Depends(get_board_service),
 ) -> ActionItem:
     require_board_access(board_id, user_id, repository, service)
-    updated = action_item_repository.update_target(
-        board_id, item_id, data.target,
+
+    if not new_item.title.strip():
+        raise HTTPException(
+            status_code=422,
+            detail="Action item title cannot be empty.",
+        )
+
+    return create_mock_action_item(board_id, new_item)
+
+
+@app.patch("/api/boards/{board_id}/items/{item_id}", response_model=ActionItem)
+def update_board_item_target(
+    board_id: str,
+    item_id: int,
+    update: ActionItemUpdate,
+    user_id: str = Depends(get_current_user_id),
+    repository: BoardRepository = Depends(get_board_repository),
+    service: BoardService = Depends(get_board_service),
+    status_service: StatusService = Depends(get_status_service),
+) -> ActionItem:
+    # Verify board access before allowing an update.
+    require_board_access(board_id, user_id, repository, service)
+
+    # Status changes go through the status service, so they're checked
+    # against the board's statuses and recorded in the item's history.
+    if update.status is not None:
+        try:
+            status_service.change_status(board_id, item_id, update.status, user_id)
+        except StatusValidationError as error:
+            raise HTTPException(status_code=422, detail=error.message) from error
+        except ItemNotFoundError as error:
+            raise HTTPException(status_code=404, detail="Action item not found.") from error
+
+    if update.priority is not None:
+        try:
+            PriorityService().validate_priority(update.priority)
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+
+    updated_item = update_mock_action_item(
+        board_id,
+        item_id,
+        target=update.target,
+        priority=update.priority,
     )
-    if updated is None:
-        raise HTTPException(status_code=404, detail="Action item not found.")
-    return updated
+
+    if updated_item is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Action item not found.",
+        )
+
+    return updated_item
 
 
 def check_access(x_mock_role: str = Header(default="viewer")):

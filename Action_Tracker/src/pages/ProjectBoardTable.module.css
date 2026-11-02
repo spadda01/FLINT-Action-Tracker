@@ -1,0 +1,350 @@
+.page {
+  	width: 1440px;
+  	min-height: 1024px;
+  	background-color: #fff;
+  	position: relative;
+  	overflow: hidden;
+}
+.projectBoardTable {
+  	width: 100%;
+  	min-height: 900px;
+  	position: relative;
+  	background-color: #f5f8fa;
+  	padding: 248px 32px 32px 272px;
+  	box-sizing: border-box;
+  	text-align: left;
+  	font-size: 14px;
+  	color: #334155;
+  	font-family: Avenir;
+}
+.sidebarBackground {
+  	position: absolute;
+  	top: 0px;
+  	left: 0px;
+  	background-color: #fff;
+  	width: 240px;
+  	bottom: 0px;
+}
+.myItems {
+  	position: absolute;
+  	top: 120px;
+  	left: 24px;
+}
+.projectBoards {
+  	position: absolute;
+  	top: 184px;
+  	left: 24px;
+  	font-size: 11px;
+}
+.selectedBoardBackground {
+  	position: absolute;
+  	top: 212px;
+  	left: 12px;
+  	border-radius: 6px;
+  	background-color: #e6f0f5;
+  	width: 216px;
+  	height: 40px;
+}
+.sampleProject {
+  	position: absolute;
+  	top: 224px;
+  	left: 36px;
+  	color: #006098;
+}
+.sampleProject2 {
+  	position: absolute;
+  	top: 32px;
+  	left: 272px;
+  	font-size: 26px;
+  	color: #17324d;
+}
+.departmentBoards {
+  	position: absolute;
+  	top: 296px;
+  	left: 24px;
+  	font-size: 11px;
+}
+.aeTeam {
+  	position: absolute;
+  	top: 336px;
+  	left: 36px;
+}
+.projectBoard {
+  	position: absolute;
+  	top: 72px;
+  	left: 272px;
+  	color: #526579;
+}
+.table {
+  	position: absolute;
+  	top: 120px;
+  	left: 272px;
+  	color: #006098;
+}
+.statusBoard {
+  	position: absolute;
+  	top: 120px;
+  	left: 352px;
+  	color: #526579;
+}
+.meeting {
+  	position: absolute;
+  	top: 120px;
+  	left: 479px;
+  	color: #526579;
+}
+.tabsDivider {
+  	position: absolute;
+  	top: 152px;
+  	left: 272px;
+  	background-color: #dce5eb;
+  	width: 1136px;
+  	height: 1px;
+}
+.activeTabUnderline {
+  	position: absolute;
+  	top: 150px;
+  	left: 272px;
+  	background-color: #006098;
+  	width: 48px;
+  	height: 3px;
+}
+.openFilterButtons {
+  	position: absolute;
+  	top: 176px;
+  	left: 608px;
+  	width: 104px;
+  	height: 40px;
+  	cursor: pointer;
+}
+.filterButton {
+  	position: absolute;
+  	top: 0px;
+  	left: 0px;
+  	border-radius: 6px;
+  	background-color: #fff;
+  	border: 1px solid #dce5eb;
+  	box-sizing: border-box;
+  	width: 104px;
+  	height: 40px;
+}
+.filters {
+  	position: absolute;
+  	top: 10px;
+  	left: 28px;
+}
+.openAddItemButton {
+  	position: absolute;
+  	top: 176px;
+  	left: 1280px;
+  	width: 128px;
+  	height: 40px;
+  	cursor: pointer;
+  	color: #fff;
+}
+.addItemButton {
+  	position: absolute;
+  	top: 0px;
+  	left: 0px;
+  	border-radius: 6px;
+  	background-color: #006098;
+  	width: 128px;
+  	height: 40px;
+}
+.addItem {
+  	position: absolute;
+  	top: 10px;
+  	left: 26px;
+}
+.flintText {
+  	position: absolute;
+  	top: 24px;
+  	left: 24px;
+  	width: 181px;
+  	height: 106px;
+  	font-size: 20px;
+  	color: #006098;
+}
+.actionTracker {
+  	position: absolute;
+  	top: 52px;
+  	left: 0px;
+  	letter-spacing: 0.17em;
+  	display: inline-block;
+  	width: 181px;
+  	height: 54px;
+}
+.flint {
+  	position: absolute;
+  	top: 0px;
+  	left: 0px;
+  	font-size: 48px;
+  	letter-spacing: 0.25em;
+  	font-weight: 800;
+  	display: inline-block;
+  	width: 181px;
+  	height: 54px;
+}
+
+.searchInput {
+  	position: absolute;
+  	top: 176px;
+  	left: 272px;
+  	width: 320px;
+  	height: 40px;
+  	border-radius: 6px;
+  	background-color: #fff;
+  	border: 1px solid #dce5eb;
+  	box-sizing: border-box;
+  	padding: 0 14px;
+  	font-family: inherit;
+  	font-size: 14px;
+  	color: #334155;
+}
+.searchInput::placeholder {
+  	color: #526579;
+}
+.sections {
+  	display: flex;
+  	flex-direction: column;
+  	gap: 32px;
+  	width: 1136px;
+  	font-size: 12px;
+}
+.section {
+  	position: relative;
+}
+.sectionHeader {
+  	display: flex;
+  	align-items: baseline;
+  	gap: 24px;
+  	height: 40px;
+}
+.sectionTitle {
+  	font-size: 18px;
+  	color: #006098;
+}
+.sectionCount {
+  	color: #526579;
+}
+.tableHead {
+  	position: relative;
+  	height: 40px;
+  	background-color: #e6f0f5;
+}
+.headCell {
+  	position: absolute;
+  	top: 12px;
+}
+.colItem { left: 40px; }
+.colOwners { left: 408px; }
+.colTarget { left: 608px; }
+.colStatus { left: 808px; }
+.colPriority { left: 960px; }
+.colAttention { left: 1040px; }
+.rows {
+  	position: relative;
+  	min-height: 64px;
+}
+.emptyRow {
+  	height: 64px;
+  	line-height: 64px;
+  	text-align: center;
+  	background-color: #fff;
+  	color: #526579;
+}
+.row {
+  	position: relative;
+  	height: 64px;
+  	box-sizing: border-box;
+  	background-color: #fff;
+  	border-bottom: 1px solid #dce5eb;
+  	cursor: grab;
+}
+.dragging {
+  	opacity: 0.4;
+}
+.dropBefore::before,
+.dropEnd::after {
+  	content: '';
+  	position: absolute;
+  	left: 0;
+  	right: 0;
+  	height: 3px;
+  	background-color: #006098;
+  	z-index: 1;
+  	pointer-events: none;
+}
+.dropBefore::before {
+  	top: -1px;
+}
+.dropEnd::after {
+  	bottom: -1px;
+}
+.handle {
+  	position: absolute;
+  	top: 20px;
+  	left: 12px;
+  	font-size: 16px;
+  	color: #526579;
+}
+.cell {
+  	position: absolute;
+  	top: 21px;
+  	overflow: hidden;
+  	text-overflow: ellipsis;
+  	white-space: nowrap;
+}
+.titleText {
+  	top: 20px;
+  	width: 352px;
+  	font-size: 14px;
+  	color: #17324d;
+}
+.ownersText {
+  	width: 192px;
+}
+.targetText {
+  	top: 20px;
+  	width: 192px;
+  	font-size: 14px;
+}
+.hardDate {
+  	font-size: 11px;
+  	color: #526579;
+}
+.done .titleText {
+  	text-decoration: line-through;
+  	color: #526579;
+}
+.statusButton {
+  	position: absolute;
+  	top: 16px;
+  	left: 808px;
+  	width: 128px;
+  	height: 32px;
+  	border-radius: 4px;
+  	box-sizing: border-box;
+  	padding-left: 14px;
+  	display: flex;
+  	align-items: center;
+  	cursor: pointer;
+}
+.priorityDot {
+  	position: absolute;
+  	top: 20px;
+  	left: 964px;
+  	width: 10px;
+  	height: 10px;
+  	border-radius: 50%;
+}
+.priorityLabel {
+  	position: absolute;
+  	top: 37px;
+  	left: 960px;
+}
+.attentionBox {
+  	position: absolute;
+  	top: 20px;
+  	left: 1065px;
+}
