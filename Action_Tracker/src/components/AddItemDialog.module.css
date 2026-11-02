@@ -1,0 +1,239 @@
+.addItemDialog {
+  	width: 520px;
+  	height: 620px;
+  	position: relative;
+  	border-radius: 12px;
+  	background-color: #fff;
+  	overflow: hidden;
+  	max-width: 100%;
+  	max-height: 100%;
+  	text-align: left;
+  	font-size: 14px;
+  	color: #334155;
+  	font-family: Avenir;
+}
+.addActionItem {
+  	position: absolute;
+  	top: 24px;
+  	left: 24px;
+  	font-size: 22px;
+  	color: #17324d;
+}
+.itemTitle {
+  	position: absolute;
+  	top: 80px;
+  	left: 24px;
+}
+.section {
+  	position: absolute;
+  	top: 168px;
+  	left: 24px;
+}
+.titleInput {
+  	padding: 0 12px;
+  	font-family: inherit;
+  	font-size: 14px;
+  	color: #334155;
+  	position: absolute;
+  	top: 108px;
+  	left: 24px;
+  	border-radius: 6px;
+  	background-color: #fff;
+  	border: 1px solid #dce5eb;
+  	box-sizing: border-box;
+  	width: 472px;
+  	height: 40px;
+}
+.sectionInput {
+  	padding: 0 12px;
+  	font-family: inherit;
+  	font-size: 14px;
+  	color: #334155;
+  	position: absolute;
+  	top: 196px;
+  	left: 24px;
+  	border-radius: 6px;
+  	background-color: #fff;
+  	border: 1px solid #dce5eb;
+  	box-sizing: border-box;
+  	width: 472px;
+  	height: 40px;
+}
+.owners {
+  	position: absolute;
+  	top: 252px;
+  	left: 24px;
+}
+.target {
+  	position: absolute;
+  	top: 340px;
+  	left: 24px;
+}
+.optionalHardDate {
+  	position: absolute;
+  	top: 340px;
+  	left: 268px;
+}
+.ownersInput {
+  	padding: 0 12px;
+  	font-family: inherit;
+  	font-size: 14px;
+  	color: #334155;
+  	position: absolute;
+  	top: 280px;
+  	left: 24px;
+  	border-radius: 6px;
+  	background-color: #fff;
+  	border: 1px solid #dce5eb;
+  	box-sizing: border-box;
+  	width: 472px;
+  	height: 40px;
+}
+.targetInput {
+  	padding: 0 12px;
+  	font-family: inherit;
+  	font-size: 14px;
+  	color: #334155;
+  	position: absolute;
+  	top: 368px;
+  	left: 24px;
+  	border-radius: 6px;
+  	background-color: #fff;
+  	border: 1px solid #dce5eb;
+  	box-sizing: border-box;
+  	width: 228px;
+  	height: 40px;
+}
+.hardDateInput {
+  	padding: 0 12px;
+  	font-family: inherit;
+  	font-size: 14px;
+  	color: #334155;
+  	position: absolute;
+  	top: 368px;
+  	left: 268px;
+  	border-radius: 6px;
+  	background-color: #fff;
+  	border: 1px solid #dce5eb;
+  	box-sizing: border-box;
+  	width: 228px;
+  	height: 40px;
+}
+.priority {
+  	position: absolute;
+  	top: 428px;
+  	left: 268px;
+}
+.multipleOwnersAllowed {
+  	position: absolute;
+  	top: 324px;
+  	left: 24px;
+  	font-size: 11px;
+  	color: #526579;
+}
+.status {
+  	position: absolute;
+  	top: 428px;
+  	left: 24px;
+}
+.statusInput {
+  	padding: 0 12px;
+  	font-family: inherit;
+  	font-size: 14px;
+  	color: #334155;
+  	position: absolute;
+  	top: 456px;
+  	left: 24px;
+  	border-radius: 6px;
+  	background-color: #fff;
+  	border: 1px solid #dce5eb;
+  	box-sizing: border-box;
+  	width: 228px;
+  	height: 40px;
+}
+.priorityInput {
+  	padding: 0 12px;
+  	font-family: inherit;
+  	font-size: 14px;
+  	color: #334155;
+  	position: absolute;
+  	top: 456px;
+  	left: 268px;
+  	border-radius: 6px;
+  	background-color: #fff;
+  	border: 1px solid #dce5eb;
+  	box-sizing: border-box;
+  	width: 228px;
+  	height: 40px;
+}
+.attentionThisWeek {
+  	position: absolute;
+  	top: 516px;
+  	left: 56px;
+}
+.cancelButtonAndSubmitItem {
+  	position: absolute;
+  	top: 556px;
+  	left: 268px;
+  	width: 228px;
+  	height: 40px;
+}
+
+.addItemDialog input::placeholder {
+  	color: #526579;
+}
+.addItemDialog label {
+  	cursor: default;
+}
+.x {
+  	position: absolute;
+  	top: 24px;
+  	left: 476px;
+  	padding: 0;
+  	border: none;
+  	background: none;
+  	font-family: inherit;
+  	font-size: 24px;
+  	line-height: 1;
+  	color: #526579;
+  	cursor: pointer;
+}
+.attentionCheckbox {
+  	position: absolute;
+  	top: 516px;
+  	left: 24px;
+}
+.attentionThisWeek {
+  	cursor: pointer;
+}
+.cancel {
+  	position: absolute;
+  	top: 0px;
+  	left: 0px;
+  	background-color: #fff;
+  	border: 1px solid #dce5eb;
+  	box-sizing: border-box;
+  	width: 104px;
+  	height: 40px;
+  	font-family: inherit;
+  	font-size: 14px;
+  	color: #334155;
+  	cursor: pointer;
+}
+.addItem {
+  	position: absolute;
+  	top: 0px;
+  	left: 120px;
+  	background-color: #006098;
+  	border: none;
+  	width: 108px;
+  	height: 40px;
+  	font-family: inherit;
+  	font-size: 14px;
+  	color: #fff;
+  	cursor: pointer;
+}
+.addItem:disabled {
+  	opacity: 0.5;
+  	cursor: not-allowed;
+}
