@@ -1,5 +1,8 @@
 import os
 
+from fastapi import Body, Depends, FastAPI, Header, HTTPException
+
+from app.schemas.action_items import ActionItem, TargetUpdate
 from fastapi import Depends, FastAPI, Header, HTTPException
 from app.api.priorities import router as priorities_router
 from app.adapters.boards import BoardRepository, MockBoardRepository
@@ -36,6 +39,11 @@ class ActionItemUpdate(BaseModel):
 app = FastAPI(title="FLINT Action Tracker API")
 app.include_router(priorities_router)
 services = create_services()
+action_item_repository = (
+    create_mock_action_item,
+    get_mock_action_items,
+    update_mock_action_item,
+)
 
 
 def require_mock_mode() -> None:
@@ -64,6 +72,21 @@ def created_board_summary(board: dict) -> BoardSummary:
         name=board["name"],
         type=board["type"],
         openItemCount=board.get("openItemCount", 0),
+    )
+
+
+def has_board_access(
+    board_id: str,
+    user_id: str,
+    repository: BoardRepository,
+    service: BoardService,
+) -> bool:
+    if any(board.id == board_id for board in list_accessible_boards(user_id, repository)):
+        return True
+
+    saved_board = service.get_board(board_id)
+    return bool(
+        saved_board and can_open_created_board(saved_board, user_id, service)
     )
 
 
@@ -111,6 +134,21 @@ def get_board(
     raise HTTPException(status_code=404, detail="Board not found.")
 
 
+def require_board_access(
+    board_id: str,
+    user_id: str,
+    repository: BoardRepository,
+    service: BoardService,
+) -> None:
+    require_mock_mode()
+    if not has_board_access(board_id, user_id, repository, service):
+        raise HTTPException(status_code=404, detail="Board not found.")
+
+
+@app.get(
+    "/api/boards/{board_id}/items",
+    response_model=list[ActionItem],
+)
 @app.get("/api/boards/{board_id}/items", response_model=list[ActionItem])
 def get_board_items(
     board_id: str,
@@ -118,8 +156,7 @@ def get_board_items(
     repository: BoardRepository = Depends(get_board_repository),
     service: BoardService = Depends(get_board_service),
 ) -> list[ActionItem]:
-    # Reuse board access checks before returning its action items.
-    get_board(board_id, user_id, repository, service)
+    require_board_access(board_id, user_id, repository, service)
     return get_mock_action_items(board_id)
 
 
@@ -132,7 +169,7 @@ def create_board_item(
     repository: BoardRepository = Depends(get_board_repository),
     service: BoardService = Depends(get_board_service),
 ) -> ActionItem:
-    get_board(board_id, user_id, repository, service)
+    require_board_access(board_id, user_id, repository, service)
 
     if not new_item.title.strip():
         raise HTTPException(
@@ -154,7 +191,7 @@ def update_board_item_target(
     status_service: StatusService = Depends(get_status_service),
 ) -> ActionItem:
     # Verify board access before allowing an update.
-    get_board(board_id, user_id, repository, service)
+    require_board_access(board_id, user_id, repository, service)
 
     # Status changes go through the status service, so they're checked
     # against the board's statuses and recorded in the item's history.

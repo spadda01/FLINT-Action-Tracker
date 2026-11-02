@@ -1,444 +1,858 @@
-import { Fragment, useEffect, useState } from 'react'
-import { announcePriorityUpdate, subscribeToPriorityUpdates, announceActionItemCreated } from '../services/priorityEvents'
+import { Fragment, useEffect, useMemo, useState } from 'react'
+import {
+  displayTarget,
+  dateFirstSorting,
+  targetFromInput,
+  type Target,
+  type TargetDisplay,
+} from '../target'
+import {
+  loadActionItems,
+  saveActionItemTarget,
+  type ActionItem,
+} from '../services/actionItemService'
+import {
+  announcePriorityUpdate,
+  subscribeToPriorityUpdates,
+  announceActionItemCreated,
+} from '../services/priorityEvents'
 import { changeItemStatus } from '../services/itemStatusService'
 import StatusChooser from './StatusChooser'
 
-// store each of the owner's name and whether they work outside flint
+// Additional fields used by the existing board table.
+// The shared ActionItem type in actionItemService should also
+// include these fields.
 type ActionOwner = {
-    name: string
-    isExternal: boolean
+  name: string
+  isExternal: boolean
 }
 
-
-type ActionItem = {
-    id: number
-    section: string
-    priority: string
-    title: string
-    owners: ActionOwner[]
-    target: string
-    hardDate: string | null
-    status: string
-    attention: boolean
+type BoardActionItem = ActionItem & {
+  section: string
+  owners: ActionOwner[]
+  hardDate: string | null
+  status: string
+  attention: boolean
 }
 
-type EditableField = 'priority' | 'target'
+type EditableField = 'priority'
 
 type EditingCell = {
-    itemId: number
-    field: EditableField
+  itemId: BoardActionItem['id']
+  field: EditableField
 }
 
+type RowStatus = {
+  kind: 'saved' | 'error'
+  message: string
+  invalid?: boolean
+}
 
-// convert the stored dates from the standard YYYY-MM-DD into readable table dates
+type Props = {
+  boardId: string
+}
+
+function targetForSort(target: TargetDisplay): Target {
+  return target.type === 'date'
+    ? { type: 'date', value: target.value }
+    : { type: 'text', value: target.value }
+}
+
+// Convert stored YYYY-MM-DD dates into readable table dates.
 function formatHardDate(date: string | null): string {
-    if (!date) return '—'
+  if (!date) return '—'
 
-    const [year, month, day] = date.split('-').map(Number)
-    const parsedDate = new Date(Date.UTC(year, month - 1, day))
+  const [year, month, day] = date.split('-').map(Number)
+  const parsedDate = new Date(Date.UTC(year, month - 1, day))
 
-    return parsedDate.toLocaleDateString('en-US', {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-        timeZone: 'UTC',
-    })
+  return parsedDate.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  })
 }
 
-type ActionItemsTableProps = {
-    boardId: string
-}
+function ActionItemsTable({ boardId }: Props) {
+  const [items, setItems] = useState<BoardActionItem[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [loadAttempt, setLoadAttempt] = useState(0)
 
-function ActionItemsTable({ boardId }: ActionItemsTableProps) {
-    const [items, setItems] = useState<ActionItem[]>([])
-    const [isLoading, setIsLoading] = useState(true)
-    const [error, setError] = useState<string | null>(null)
-    const [editingCell, setEditingCell] = useState<EditingCell | null>(null)
-    const [saveError, setSaveError] = useState<string | null>(null)
-    // track the new action item's title and creation state
-    const [newItemTitle, setNewItemTitle] = useState('')
-    const [isCreating, setIsCreating] = useState(false)
-    const [createError, setCreateError] = useState<string | null>(null)
+  // Existing table editing state.
+  const [editingCell, setEditingCell] = useState<EditingCell | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
-    useEffect(() => {
-        return subscribeToPriorityUpdates(
-            ({ boardId: updatedBoardId, itemId, priority }) => {
-                if (updatedBoardId !== boardId) return
+  // Quick-entry state.
+  const [newItemTitle, setNewItemTitle] = useState('')
+  const [isCreating, setIsCreating] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
 
-                setItems((previousItems) =>
-                    previousItems.map((item) =>
-                        item.id === itemId
-                            ? { ...item, priority }
-                            : item
-                    )
-                )
-            }
-        )
-    }, [boardId])
-    // tracks which action item field is being edited currently
-    function startEditing(itemId: number, field: EditableField) {
-        setEditingCell({ itemId, field })
-    }
-    // saves the updated target to the backend before updating the table
-    async function saveTarget(itemId: number, newTarget: string) {
-        setSaveError(null)
-        try {
-            const response = await fetch(
-                `/api/boards/${encodeURIComponent(boardId)}/items/${itemId}`,
-                {
-                    method: 'PATCH',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ target: newTarget }),
-                }
-            )
-            if (!response.ok) {
-                throw new Error('Failed to save target')
-            }
-            const updatedItem: ActionItem = await response.json()
-            setItems((previousItems) =>
-                previousItems.map((item) =>
-                    item.id === itemId ? updatedItem : item
-                )
-            )
-        } catch (error) {
-            console.error('Error saving target:', error)
-            setSaveError('Unable to save your changes. Please try again.')
-        }
-    }
+  // Target editing state.
+  const [drafts, setDrafts] = useState<Record<string, TargetDisplay>>({})
+  const [targetStatuses, setTargetStatuses] = useState<
+    Record<string, RowStatus>
+  >({})
+  const [savingItemIds, setSavingItemIds] = useState<string[]>([])
+  const [isSorted, setIsSorted] = useState(false)
 
-    // Save priority changes to the backend.
-    async function savePriority(itemId: number, newPriority: string) {
-        setSaveError(null)
+  // Keep priority changes synchronized with the priority panel.
+  useEffect(() => {
+    return subscribeToPriorityUpdates(
+      ({ boardId: updatedBoardId, itemId, priority }) => {
+        if (updatedBoardId !== boardId) return
 
-        try {
-            const response = await fetch(
-                `/api/boards/${encodeURIComponent(boardId)}/items/${itemId}`,
-                {
-                    method: 'PATCH',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ priority: newPriority }),
-                }
-            )
-
-            if (!response.ok) {
-                throw new Error('Failed to save priority')
-            }
-
-            const updatedItem: ActionItem = await response.json()
-
-            setItems((previousItems) =>
-                previousItems.map((item) =>
-                    item.id === itemId ? updatedItem : item
-                )
-            )
-
-            announcePriorityUpdate({
-                boardId,
-                itemId,
-                priority: updatedItem.priority,
-            })
-        } catch (error) {
-            console.error('Error saving priority:', error)
-            setSaveError('Unable to save your changes. Please try again.')
-        }
-    }
-
-    // Saves through the status endpoint so the change is recorded in history.
-    // Errors are left to StatusChooser, which shows them next to the item.
-    async function saveStatus(itemId: number, newStatus: string) {
-        const result = await changeItemStatus(boardId, itemId, newStatus)
         setItems((previousItems) =>
-            previousItems.map((item) =>
-                item.id === itemId ? { ...item, status: result.item.status } : item
-            )
+          previousItems.map((item) =>
+            item.id === itemId
+              ? { ...item, priority }
+              : item,
+          ),
         )
-    }
+      },
+    )
+  }, [boardId])
 
-    // create a new action item and add it to the table.
-    async function createActionItem() {
-        const title = newItemTitle.trim()
+  // Load the board's shared action items.
+  useEffect(() => {
+    let cancelled = false
 
-        if (!title || isCreating) return
+    async function loadItems() {
+      setIsLoading(true)
+      setError(null)
 
-        setIsCreating(true)
-        setCreateError(null)
+      try {
+        const loadedItems = await loadActionItems(boardId)
 
-        try {
-            const response = await fetch(
-                `/api/boards/${encodeURIComponent(boardId)}/items`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ title }),
-                }
-            )
+        if (!cancelled) {
+          const boardItems = loadedItems as BoardActionItem[]
 
-            if (!response.ok) {
-                throw new Error('Failed to create action item')
-            }
+          setItems(boardItems)
 
-            const createdItem: ActionItem = await response.json()
+          setDrafts(
+            Object.fromEntries(
+              boardItems.map((item) => [
+                String(item.id),
+                displayTarget(item.target),
+              ]),
+            ),
+          )
 
-            setItems((previousItems) => [...previousItems, createdItem])
-            // notify the priority panel that a new item is available
-            announceActionItemCreated({ boardId })
-            setNewItemTitle('')
-        } catch (error) {
-            console.error('Error creating action item:', error)
-            setCreateError('Unable to create action item. Please try again.')
-        } finally {
-            setIsCreating(false)
+          setTargetStatuses({})
         }
+      } catch {
+        if (!cancelled) {
+          setError('Unable to load action items. Please try again.')
+          setItems([])
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false)
+        }
+      }
     }
 
-    // group action items by section while preserving their order
-    const groupedItems = items.reduce<Record<string, ActionItem[]>>(
+    void loadItems()
+
+    return () => {
+      cancelled = true
+    }
+  }, [boardId, loadAttempt])
+
+  // Sort by target when requested.
+  // Date targets appear before text targets.
+  // Original order is preserved when targets compare equally.
+  const visibleItems = useMemo(() => {
+    if (!isSorted) return items
+
+    return items
+      .map((item, index) => ({ item, index }))
+      .sort((left, right) => {
+        const leftTarget =
+          drafts[String(left.item.id)] ??
+          displayTarget(left.item.target)
+
+        const rightTarget =
+          drafts[String(right.item.id)] ??
+          displayTarget(right.item.target)
+
+        const [leftGroup, leftValue] = dateFirstSorting(
+          targetForSort(leftTarget),
+        )
+
+        const [rightGroup, rightValue] = dateFirstSorting(
+          targetForSort(rightTarget),
+        )
+
+        return (
+          leftGroup - rightGroup ||
+          leftValue.localeCompare(rightValue) ||
+          left.index - right.index
+        )
+      })
+      .map(({ item }) => item)
+  }, [drafts, isSorted, items])
+
+  // Group items by section while preserving their current order.
+  const groupedItems = useMemo(
+    () =>
+      visibleItems.reduce<Record<string, BoardActionItem[]>>(
         (groups, item) => {
-            if (!groups[item.section]) {
-                groups[item.section] = []
-            }
+          if (!groups[item.section]) {
+            groups[item.section] = []
+          }
 
-            groups[item.section].push(item)
-            return groups
+          groups[item.section].push(item)
+          return groups
         },
-        {}
-    )
-    useEffect(() => {
-        let cancelled = false
-        async function loadItems() {
-            setIsLoading(true)
-            setError(null)
-            try {
-                const response = await fetch(
-                    `/api/boards/${encodeURIComponent(boardId)}/items`
-                )
-                if (!response.ok) {
-                    throw new Error('Failed to load action items')
-                }
-                const data: ActionItem[] = await response.json()
+        {},
+      ),
+    [visibleItems],
+  )
 
-                // ignore results if the user switches boards during loading
-                if (!cancelled) {
-                    setItems(data)
-                }
-            } catch (error) {
-                if (!cancelled) {
-                    console.error('Error loading action items:', error)
-                    setError('Unable to load action items. Please try again.')
-                    setItems([])
-                }
-            } finally {
-                if (!cancelled) {
-                    setIsLoading(false)
-                }
+  // Start editing an existing table field.
+  function startEditing(
+    itemId: BoardActionItem['id'],
+    field: EditableField,
+  ) {
+    setEditingCell({ itemId, field })
+  }
+
+  // Update an unsaved target draft.
+  function updateDraft(
+    itemId: BoardActionItem['id'],
+    draft: TargetDisplay,
+  ) {
+    const key = String(itemId)
+
+    setDrafts((current) => ({
+      ...current,
+      [key]: draft,
+    }))
+
+    setTargetStatuses((current) => {
+      const next = { ...current }
+      delete next[key]
+      return next
+    })
+  }
+
+  // Validate and save a target through the shared action-item service.
+  async function saveTarget(item: BoardActionItem) {
+    const key = String(item.id)
+    const draft =
+      drafts[key] ?? displayTarget(item.target)
+
+    let target: Target
+
+    try {
+      target = targetFromInput(draft.type, draft.value)
+    } catch (error) {
+      if (!(error instanceof RangeError)) throw error
+
+      setTargetStatuses((current) => ({
+        ...current,
+        [key]: {
+          kind: 'error',
+          invalid: true,
+          message:
+            draft.type === 'date'
+              ? 'Enter a valid calendar date.'
+              : 'Enter a valid target.',
+        },
+      }))
+
+      return
+    }
+
+    setSavingItemIds((current) =>
+      current.includes(key)
+        ? current
+        : [...current, key],
+    )
+
+    setTargetStatuses((current) => {
+      const next = { ...current }
+      delete next[key]
+      return next
+    })
+
+    try {
+      const savedItem = await saveActionItemTarget(
+        boardId,
+        item.id,
+        target,
+      )
+
+      const updatedItem = savedItem as BoardActionItem
+
+      setItems((current) =>
+        current.map((currentItem) =>
+          currentItem.id === updatedItem.id
+            ? updatedItem
+            : currentItem,
+        ),
+      )
+
+      setDrafts((current) => ({
+        ...current,
+        [String(updatedItem.id)]: displayTarget(
+          updatedItem.target,
+        ),
+      }))
+
+      setTargetStatuses((current) => ({
+        ...current,
+        [key]: {
+          kind: 'saved',
+          message: 'Target saved.',
+        },
+      }))
+    } catch (error) {
+      setTargetStatuses((current) => ({
+        ...current,
+        [key]: {
+          kind: 'error',
+          message:
+            error instanceof Error
+              ? error.message
+              : 'The target could not be saved. Your change is kept so you can try again.',
+        },
+      }))
+    } finally {
+      setSavingItemIds((current) =>
+        current.filter((itemId) => itemId !== key),
+      )
+    }
+  }
+
+  // Save priority changes to the backend.
+  async function savePriority(
+    itemId: BoardActionItem['id'],
+    newPriority: string,
+  ) {
+    setSaveError(null)
+
+    try {
+      const response = await fetch(
+        `/api/boards/${encodeURIComponent(boardId)}/items/${itemId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            priority: newPriority,
+          }),
+        },
+      )
+
+      if (!response.ok) {
+        throw new Error('Failed to save priority')
+      }
+
+      const updatedItem =
+        (await response.json()) as BoardActionItem
+
+      setItems((previousItems) =>
+        previousItems.map((item) =>
+          item.id === itemId
+            ? updatedItem
+            : item,
+        ),
+      )
+
+      announcePriorityUpdate({
+        boardId,
+        itemId,
+        priority: updatedItem.priority,
+      })
+    } catch (error) {
+      console.error('Error saving priority:', error)
+      setSaveError(
+        'Unable to save your changes. Please try again.',
+      )
+    }
+  }
+
+  // Save status through the status service so history is recorded.
+  async function saveStatus(
+    itemId: BoardActionItem['id'],
+    newStatus: string,
+  ) {
+    try {
+      const result = await changeItemStatus(
+        boardId,
+        itemId,
+        newStatus,
+      )
+
+      setItems((previousItems) =>
+        previousItems.map((item) =>
+          item.id === itemId
+            ? {
+                ...item,
+                status: result.item.status,
+              }
+            : item,
+        ),
+      )
+    } catch (error) {
+      console.error('Error saving status:', error)
+      setSaveError(
+        'Unable to save the status change. Please try again.',
+      )
+    }
+  }
+
+  // Create a new action item through the existing board endpoint.
+  async function createActionItem() {
+    const title = newItemTitle.trim()
+
+    if (!title || isCreating) return
+
+    setIsCreating(true)
+    setCreateError(null)
+
+    try {
+      const response = await fetch(
+        `/api/boards/${encodeURIComponent(boardId)}/items`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ title }),
+        },
+      )
+
+      if (!response.ok) {
+        throw new Error('Failed to create action item')
+      }
+
+      const createdItem =
+        (await response.json()) as BoardActionItem
+
+      setItems((previousItems) => [
+        ...previousItems,
+        createdItem,
+      ])
+
+      setDrafts((current) => ({
+        ...current,
+        [String(createdItem.id)]: displayTarget(
+          createdItem.target,
+        ),
+      }))
+
+      // Notify the priority panel that a new item is available.
+      announceActionItemCreated({ boardId })
+
+      setNewItemTitle('')
+    } catch (error) {
+      console.error('Error creating action item:', error)
+      setCreateError(
+        'Unable to create action item. Please try again.',
+      )
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
+  return (
+    <section
+      className="board-list action-items"
+      aria-labelledby="action-items-heading"
+    >
+      <h2 id="action-items-heading">Action Items</h2>
+
+      {saveError && (
+        <p className="action-save-error" role="alert">
+          {saveError}
+        </p>
+      )}
+
+      {createError && (
+        <p className="action-save-error" role="alert">
+          {createError}
+        </p>
+      )}
+
+      {isLoading ? (
+        <p role="status">Loading action items...</p>
+      ) : error ? (
+        <div>
+          <p role="alert">{error}</p>
+          <button
+            type="button"
+            className="boards-retry"
+            onClick={() =>
+              setLoadAttempt((attempt) => attempt + 1)
             }
-        }
-        loadItems()
+          >
+            Retry loading action items
+          </button>
+        </div>
+      ) : (
+        <>
+          <button
+            type="button"
+            className="target-sort"
+            aria-pressed={isSorted}
+            onClick={() =>
+              setIsSorted((sorted) => !sorted)
+            }
+          >
+            {isSorted
+              ? 'Clear target sort'
+              : 'Sort by target'}
+          </button>
 
-        return () => {
-            cancelled = true
-        }
-    }, [boardId])
+          <div
+            style={{
+              overflowX: 'auto',
+              width: '100%',
+            }}
+          >
+            <table
+              className="action-items-table"
+              style={{
+                minWidth: '1000px',
+                width: '100%',
+              }}
+            >
+              <thead>
+                <tr>
+                  <th scope="col">Priority</th>
+                  <th scope="col">Deliverable / Action</th>
+                  <th scope="col">Owners</th>
+                  <th scope="col">Target</th>
+                  <th scope="col">Hard Date</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Attention</th>
+                </tr>
+              </thead>
 
-    return (
-        <section className="action-items">
-            <h3>Action Items</h3>
-            {saveError && (
-                <p className="action-save-error" role="alert">
-                    {saveError}
-                </p>
-            )}
-            {createError && (
-                <p className="action-save-error" role="alert">
-                    {createError}
-                </p>
-            )}
-            <div style={{ overflowX: "auto", width: "100%" }}>
-                <table className="action-items-table" style={{ minWidth: "1000px", width: "100%" }}>
-                    <thead>
-                        <tr>
-                            <th>Priority</th>
-                            <th>Deliverable / Action</th>
-                            <th>Owners</th>
-                            <th>Target</th>
-                            <th>Hard Date</th>
-                            <th>Status</th>
-                            <th>Attention</th>
+              <tbody>
+                {items.length === 0 ? (
+                  <tr>
+                    <td colSpan={7}>
+                      No action items found.
+                    </td>
+                  </tr>
+                ) : (
+                  Object.entries(groupedItems).map(
+                    ([section, sectionItems]) => (
+                      <Fragment key={section}>
+                        <tr className="section-header">
+                          <th
+                            colSpan={7}
+                            scope="rowgroup"
+                          >
+                            {section}
+                          </th>
                         </tr>
-                    </thead>
 
-                    <tbody>
-                        {isLoading && (
-                            <tr>
-                                <td colSpan={7}>Loading action items...</td>
+                        {sectionItems.map((item) => {
+                          const key = String(item.id)
+                          const draft =
+                            drafts[key] ??
+                            displayTarget(item.target)
+                          const targetStatus =
+                            targetStatuses[key]
+                          const isSaving =
+                            savingItemIds.includes(key)
+
+                          return (
+                            <tr key={item.id}>
+                              {/* Priority */}
+                              <td>
+                                {editingCell?.itemId ===
+                                  item.id &&
+                                editingCell.field ===
+                                  'priority' ? (
+                                  <select
+                                    defaultValue={item.priority}
+                                    aria-label={`Edit priority for ${item.title}`}
+                                    autoFocus
+                                    onChange={(event) => {
+                                      void savePriority(
+                                        item.id,
+                                        event.currentTarget.value,
+                                      )
+                                      setEditingCell(null)
+                                    }}
+                                    onKeyDown={(event) => {
+                                      if (
+                                        event.key === 'Escape'
+                                      ) {
+                                        event.preventDefault()
+                                        setEditingCell(null)
+                                      }
+                                    }}
+                                  >
+                                    <option value="High">
+                                      High
+                                    </option>
+                                    <option value="Medium">
+                                      Medium
+                                    </option>
+                                    <option value="Low">
+                                      Low
+                                    </option>
+                                  </select>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    className={`priority priority-${item.priority.toLowerCase()}`}
+                                    onClick={() =>
+                                      startEditing(
+                                        item.id,
+                                        'priority',
+                                      )
+                                    }
+                                    aria-label={`Edit priority for ${item.title}`}
+                                  >
+                                    <span
+                                      className="priority-dot"
+                                      aria-hidden="true"
+                                    />
+                                    {item.priority}
+                                  </button>
+                                )}
+                              </td>
+
+                              {/* Deliverable / Action */}
+                              <td>{item.title}</td>
+
+                              {/* Owners */}
+                              <td>
+                                <div className="action-owners">
+                                  {item.owners.map(
+                                    (owner, index) => (
+                                      <span
+                                        className="action-owner"
+                                        key={`${owner.name}-${index}`}
+                                      >
+                                        {owner.name}
+
+                                        {owner.isExternal && (
+                                          <span className="external-tag">
+                                            External
+                                          </span>
+                                        )}
+                                      </span>
+                                    ),
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Typed target editor */}
+                              <td>
+                                <label
+                                  className="visually-hidden"
+                                  htmlFor={`target-type-${item.id}`}
+                                >
+                                  Target type for {item.title}
+                                </label>
+
+                                <select
+                                  id={`target-type-${item.id}`}
+                                  value={draft.type}
+                                  disabled={isSaving}
+                                  onChange={(event) => {
+                                    const type =
+                                      event.currentTarget.value
+
+                                    if (
+                                      type !== 'text' &&
+                                      type !== 'date'
+                                    ) {
+                                      return
+                                    }
+
+                                    updateDraft(item.id, {
+                                      type,
+                                      value:
+                                        type === 'date' &&
+                                        draft.type !== 'date'
+                                          ? ''
+                                          : draft.value,
+                                    })
+                                  }}
+                                >
+                                  <option value="text">
+                                    Text
+                                  </option>
+                                  <option value="date">
+                                    Date
+                                  </option>
+                                </select>
+
+                                <label
+                                  className="visually-hidden"
+                                  htmlFor={`target-value-${item.id}`}
+                                >
+                                  Target for {item.title}
+                                </label>
+
+                                {draft.type === 'date' ? (
+                                  <input
+                                    id={`target-value-${item.id}`}
+                                    type="date"
+                                    value={draft.value}
+                                    disabled={isSaving}
+                                    aria-invalid={
+                                      targetStatus?.invalid ??
+                                      false
+                                    }
+                                    onChange={(event) =>
+                                      updateDraft(item.id, {
+                                        ...draft,
+                                        value:
+                                          event.target.value,
+                                      })
+                                    }
+                                  />
+                                ) : (
+                                  <textarea
+                                    id={`target-value-${item.id}`}
+                                    rows={2}
+                                    value={draft.value}
+                                    disabled={isSaving}
+                                    aria-invalid={
+                                      targetStatus?.invalid ??
+                                      false
+                                    }
+                                    onChange={(event) =>
+                                      updateDraft(item.id, {
+                                        ...draft,
+                                        value:
+                                          event.target.value,
+                                      })
+                                    }
+                                  />
+                                )}
+
+                                <button
+                                  type="button"
+                                  disabled={isSaving}
+                                  onClick={() =>
+                                    void saveTarget(item)
+                                  }
+                                >
+                                  {isSaving
+                                    ? 'Saving...'
+                                    : 'Save target'}
+                                </button>
+
+                                {isSaving && (
+                                  <p role="status">
+                                    Saving target...
+                                  </p>
+                                )}
+
+                                {targetStatus?.kind ===
+                                  'saved' && (
+                                  <p role="status">
+                                    {targetStatus.message}
+                                  </p>
+                                )}
+
+                                {targetStatus?.kind ===
+                                  'error' && (
+                                  <p role="alert">
+                                    {targetStatus.message}
+                                  </p>
+                                )}
+                              </td>
+
+                              {/* Hard Date */}
+                              <td className="hard-date">
+                                {formatHardDate(item.hardDate)}
+                              </td>
+
+                              {/* Status */}
+                              <td>
+                                <StatusChooser
+                                  itemTitle={item.title}
+                                  status={item.status}
+                                  onChange={(next) =>
+                                    saveStatus(item.id, next)
+                                  }
+                                />
+                              </td>
+
+                              {/* Attention */}
+                              <td>
+                                {item.attention ? (
+                                  <span
+                                    className="attention-flag"
+                                    role="img"
+                                    aria-label="Needs attention"
+                                  >
+                                    ⚠
+                                  </span>
+                                ) : (
+                                  <span
+                                    className="attention-none"
+                                    aria-label="No attention needed"
+                                  >
+                                    —
+                                  </span>
+                                )}
+                              </td>
                             </tr>
-                        )}
-                        {!isLoading && error && (
-                            <tr>
-                                <td colSpan={7} role="alert">
-                                    {error}
-                                </td>
-                            </tr>
-                        )}
-                        {/*generate one table row for each action item. */}
-                        {!isLoading && !error && items.length === 0 && (
-                            <tr>
-                                <td colSpan={7}>No action items found.</td>
-                            </tr>
-                        )}
-                        {!isLoading && !error && Object.entries(groupedItems).map(([section, sectionItems]) => (
-                            <Fragment key={section}>
-                                <tr className="section-header">
-                                    <th colSpan={7} scope="rowgroup">
-                                        {section}
-                                    </th>
-                                </tr>
+                          )
+                        })}
+                      </Fragment>
+                    ),
+                  )
+                )}
 
-                                {sectionItems.map((item) => (
-                                    <tr key={item.id}>
-                                        <td>
-                                            {editingCell?.itemId === item.id && editingCell.field === 'priority' ? (
-                                                <select
-                                                    defaultValue={item.priority}
-                                                    aria-label={`Edit priority for ${item.title}`}
-                                                    autoFocus
-                                                    onKeyDown={(event) => {
-                                                        if (event.key === 'Enter') {
-                                                            event.preventDefault()
+                {/* Quick-entry row */}
+                <tr className="quick-entry-row">
+                  <td colSpan={7}>
+                    <form
+                      onSubmit={(event) => {
+                        event.preventDefault()
+                        void createActionItem()
+                      }}
+                    >
+                      <input
+                        type="text"
+                        value={newItemTitle}
+                        onChange={(event) =>
+                          setNewItemTitle(
+                            event.target.value,
+                          )
+                        }
+                        placeholder="+ Add an action item"
+                        aria-label="New action item title"
+                        disabled={isCreating}
+                      />
 
-                                                            const newPriority = event.currentTarget.value
-                                                            void savePriority(item.id, newPriority)
-                                                            setEditingCell(null)
-                                                        }
-
-                                                        if (event.key === 'Escape') {
-                                                            event.preventDefault()
-                                                            setEditingCell(null)
-                                                        }
-                                                    }}
-                                                >
-                                                    <option value="High">High</option>
-                                                    <option value="Medium">Medium</option>
-                                                    <option value="Low">Low</option>
-                                                </select>
-                                            ) : (
-                                                <button
-                                                    type="button"
-                                                    className={`priority priority-${item.priority.toLowerCase()}`}
-                                                    onClick={() => startEditing(item.id, 'priority')}
-                                                    aria-label={`Edit priority for ${item.title}`}
-                                                >
-                                                    <span className="priority-dot" aria-hidden="true" />
-                                                    {item.priority}
-                                                </button>
-                                            )}
-                                        </td>
-                                        <td>{item.title}</td>
-                                        <td>
-                                            <div className="action-owners">
-                                                {/* show each owner and label the external participants*/}
-                                                {item.owners.map((owner, index) => (
-                                                    <span className="action-owner" key={index}>
-                                                        {owner.name}
-                                                        {owner.isExternal && (
-                                                            <span className="external-tag">External</span>
-                                                        )}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        </td>
-                                        <td>
-                                            {editingCell?.itemId === item.id && editingCell.field === 'target' ? (
-                                                <input
-                                                    type="text"
-                                                    defaultValue={item.target}
-                                                    aria-label={`Edit target for ${item.title}`}
-                                                    autoFocus
-                                                    onKeyDown={(event) => {
-                                                        if (event.key === 'Enter') {
-                                                            const newTarget = event.currentTarget.value
-                                                            void saveTarget(item.id, newTarget)
-                                                            setEditingCell(null)
-                                                        }
-
-                                                        if (event.key === 'Escape') {
-                                                            setEditingCell(null)
-                                                        }
-                                                    }}
-                                                />
-                                            ) : (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => startEditing(item.id, 'target')}
-                                                    aria-label={`Edit target for ${item.title}`}
-                                                >
-                                                    {item.target}
-                                                </button>
-                                            )}
-                                        </td>
-                                        <td className="hard-date">
-                                            {formatHardDate(item.hardDate)}
-                                        </td>
-                                        <td>
-                                            <StatusChooser
-                                                itemTitle={item.title}
-                                                status={item.status}
-                                                onChange={(next) => saveStatus(item.id, next)}
-                                            />
-                                        </td>
-                                        <td>
-                                            {item.attention ? (
-                                                <span className="attention-flag" role="img" aria-label="Needs attention">
-                                                    ⚠
-                                                </span>
-                                            ) : (
-                                                <span className="attention-none" aria-label="No attention needed">
-                                                    —
-                                                </span>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </Fragment>
-                        ))}
-                        {!isLoading && !error && (
-                            <tr className="quick-entry-row">
-                                <td colSpan={7}>
-                                    <form
-                                        onSubmit={(event) => {
-                                            event.preventDefault()
-                                            void createActionItem()
-                                        }}
-                                    >
-                                        <input
-                                            type="text"
-                                            value={newItemTitle}
-                                            onChange={(event) => setNewItemTitle(event.target.value)}
-                                            placeholder="+ Add an action item"
-                                            aria-label="New action item title"
-                                            disabled={isCreating}
-                                        />
-                                        <button
-                                            type="submit"
-                                            disabled={isCreating || !newItemTitle.trim()}
-                                        >
-                                            {isCreating ? 'Adding...' : 'Add Item'}
-                                        </button>
-                                    </form>
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
-        </section >
-    )
+                      <button
+                        type="submit"
+                        disabled={
+                          isCreating ||
+                          !newItemTitle.trim()
+                        }
+                      >
+                        {isCreating
+                          ? 'Adding...'
+                          : 'Add Item'}
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </section>
+  )
 }
 
 export default ActionItemsTable
