@@ -4,6 +4,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from app.api.priorities import router as priorities_router
 from app.adapters.boards import BoardRepository, MockBoardRepository
 from app.api.boards import get_board_service, router as boards_router
+from app.api.item_status import get_status_service, router as item_status_router
 from app.schemas.board import BoardSummary
 from app.schemas.boards import Board
 from app.services.board_service import BoardService
@@ -17,6 +18,11 @@ from app.adapters.mock_action_items import (
 from app.schemas.action_item import ActionItem, ActionItemCreate
 from app.services.priority_permissions import can_edit_priority
 from app.services.priority_service import PriorityService
+from app.services.status_service import (
+    ItemNotFoundError,
+    StatusService,
+    StatusValidationError,
+)
 from pydantic import BaseModel
 from app.services.board_access import MOCK_EMPLOYEE_IDS, can_open_created_board
 
@@ -63,6 +69,7 @@ def created_board_summary(board: dict) -> BoardSummary:
 
 # Keep team-board creation on the shared router, with mock identity checks.
 app.include_router(boards_router, dependencies=[Depends(get_current_user_id)])
+app.include_router(item_status_router)
 
 
 @app.get("/api/me")
@@ -144,9 +151,20 @@ def update_board_item_target(
     user_id: str = Depends(get_current_user_id),
     repository: BoardRepository = Depends(get_board_repository),
     service: BoardService = Depends(get_board_service),
+    status_service: StatusService = Depends(get_status_service),
 ) -> ActionItem:
     # Verify board access before allowing an update.
     get_board(board_id, user_id, repository, service)
+
+    # Status changes go through the status service, so they're checked
+    # against the board's statuses and recorded in the item's history.
+    if update.status is not None:
+        try:
+            status_service.change_status(board_id, item_id, update.status, user_id)
+        except StatusValidationError as error:
+            raise HTTPException(status_code=422, detail=error.message) from error
+        except ItemNotFoundError as error:
+            raise HTTPException(status_code=404, detail="Action item not found.") from error
 
     if update.priority is not None:
         try:
@@ -159,7 +177,6 @@ def update_board_item_target(
         item_id,
         target=update.target,
         priority=update.priority,
-        status=update.status,
     )
 
     if updated_item is None:

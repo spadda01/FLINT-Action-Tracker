@@ -267,7 +267,7 @@ test('saves priority changes to the backend', async () => {
     })
 })
 
-test('saves status changes to the backend', async () => {
+test('saves status changes through the status chooser', async () => {
     const user = userEvent.setup()
 
     const item = {
@@ -284,7 +284,17 @@ test('saves status changes to the backend', async () => {
 
     vi.mocked(fetch).mockImplementation(async (_url, options?: RequestInit) => {
         if (options?.method === 'PATCH') {
-            return json({ ...item, status: 'Done' })
+            return json({
+                item: { id: 1, boardId: 'project-1', title: item.title, status: 'Complete' },
+                change: {
+                    itemId: 1,
+                    boardId: 'project-1',
+                    actorId: 'user-1',
+                    changedAt: '2026-11-01T10:00:00+00:00',
+                    oldStatus: 'Not Started',
+                    newStatus: 'Complete',
+                },
+            })
         }
 
         return json([item])
@@ -292,28 +302,62 @@ test('saves status changes to the backend', async () => {
 
     render(<ActionItemsTable boardId="project-1" />)
 
-    const statusButton = await screen.findByRole('button', {
-        name: /edit status for review construction drawings/i,
+    await user.click(
+        await screen.findByRole('button', {
+            name: /change status for review construction drawings/i,
+        })
+    )
+    await user.click(screen.getByRole('menuitemradio', { name: /complete/i }))
+
+    expect(fetch).toHaveBeenCalledWith(
+        '/api/boards/project-1/items/1/status',
+        expect.objectContaining({
+            method: 'PATCH',
+            body: JSON.stringify({ status: 'Complete' }),
+        })
+    )
+    expect(
+        await screen.findByRole('button', {
+            name: 'Change status for Review construction drawings, currently Complete',
+        })
+    ).toBeTruthy()
+})
+
+test('keeps the old status and explains when a status change fails', async () => {
+    const user = userEvent.setup()
+
+    const item = {
+        id: 1,
+        section: 'Design',
+        priority: 'High',
+        title: 'Review construction drawings',
+        owners: [],
+        target: 'Before next meeting',
+        hardDate: null,
+        status: 'Not Started',
+        attention: false,
+    }
+
+    vi.mocked(fetch).mockImplementation(async (_url, options?: RequestInit) => {
+        if (options?.method === 'PATCH') {
+            return json({ detail: 'Board not found.' }, 404)
+        }
+
+        return json([item])
     })
 
-    await user.click(statusButton)
+    render(<ActionItemsTable boardId="project-1" />)
 
-    const statusSelect = screen.getByRole('combobox', {
-        name: /edit status for review construction drawings/i,
-    })
+    await user.click(
+        await screen.findByRole('button', {
+            name: /change status for review construction drawings/i,
+        })
+    )
+    await user.click(screen.getByRole('menuitemradio', { name: /scheduled/i }))
 
-    await user.selectOptions(statusSelect, 'Done')
-    await user.keyboard('{Enter}')
-
-    await waitFor(() => {
-        expect(fetch).toHaveBeenCalledWith(
-            '/api/boards/project-1/items/1',
-            expect.objectContaining({
-                method: 'PATCH',
-                body: JSON.stringify({ status: 'Done' }),
-            })
-        )
-    })
+    expect((await screen.findByRole('alert')).textContent).toContain(
+        "Couldn't change status to Scheduled. It is still Not Started."
+    )
 })
 
 test('cancels target editing when Escape is pressed', async () => {
