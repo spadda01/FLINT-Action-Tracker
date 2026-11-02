@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { DEFAULT_STATUSES, statusClassName } from '../types/itemStatus'
 import styles from './StatusChooser.module.css'
@@ -30,7 +30,9 @@ function StatusChooser({
     const menuId = useId()
     const wrapper = useRef<HTMLDivElement>(null)
     const toggle = useRef<HTMLButtonElement>(null)
+    const menu = useRef<HTMLDivElement>(null)
     const options = useRef<(HTMLButtonElement | null)[]>([])
+    const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 })
 
     const isSaving = pendingStatus !== null
     // While saving, show the status the user picked instead of the old one.
@@ -42,6 +44,34 @@ function StatusChooser({
             options.current[activeIndex]?.focus()
         }
     }, [isOpen, activeIndex])
+
+    // The menu is fixed to the window, so a scrolling table can't cut it off.
+    // It opens under the button, or above it when there isn't room below,
+    // and follows the button if the page or table scrolls.
+    useLayoutEffect(() => {
+        if (!isOpen) return
+
+        function place() {
+            const button = toggle.current?.getBoundingClientRect()
+            const list = menu.current
+            if (!button || !list) return
+
+            const below = button.bottom + 4
+            const fitsBelow = below + list.offsetHeight <= window.innerHeight
+            setMenuPosition({
+                top: fitsBelow ? below : Math.max(4, button.top - 4 - list.offsetHeight),
+                left: Math.max(4, Math.min(button.left, window.innerWidth - list.offsetWidth - 4)),
+            })
+        }
+
+        place()
+        window.addEventListener('scroll', place, true)
+        window.addEventListener('resize', place)
+        return () => {
+            window.removeEventListener('scroll', place, true)
+            window.removeEventListener('resize', place)
+        }
+    }, [isOpen])
 
     // Close the menu when the user clicks anywhere outside it.
     useEffect(() => {
@@ -187,10 +217,12 @@ function StatusChooser({
 
             {isOpen && (
                 <div
+                    ref={menu}
                     id={menuId}
                     role="menu"
                     aria-label={`Status options for ${itemTitle}`}
                     className={styles.menu}
+                    style={menuPosition}
                     onKeyDown={handleMenuKeyDown}
                 >
                     {statuses.map((option, index) => (

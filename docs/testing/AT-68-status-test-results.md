@@ -7,15 +7,16 @@ Tested by: Fahim · Date: 2026-10-29 · Branch: `Fahim/AT-68` · Data: mocks onl
 
 | Area | Tests | Passed | Failed |
 |---|---|---|---|
-| Status API (backend, pytest, `tests/test_item_status.py`) | 37 | 37 | 0 |
+| Status API (backend, pytest, `tests/test_item_status.py`) | 41 | 41 | 0 |
 | Status chooser (frontend, Vitest, `StatusChooser.test.tsx`) | 19 | 19 | 0 |
 | Status service (frontend, `itemStatusService.test.ts`) | 14 | 14 | 0 |
 | Chooser and service together (frontend, `StatusChooser.integration.test.tsx`) | 7 | 7 | 0 |
-| **Total for this story** | **77** | **77** | **0** |
+| Chooser in the action items table (frontend, `ActionItemsTable.test.tsx`) | 2 | 2 | 0 |
+| **Total for this story** | **83** | **83** | **0** |
 
-Full suites on the branch: backend 122 passed, frontend 70 passed. Lint and build are clean.
+Full suites on the branch: backend 165 passed, frontend 99 passed. Lint and build are clean.
 
-Both client acceptance criteria pass. The chooser is not yet placed in the action items table, because the table is on `SaihajP/AT-8`, which isn't merged yet (see "Not covered yet").
+Both client acceptance criteria pass. The chooser is in the action items table's Status column, and the table and status history use the same stored items. Also checked by hand in the browser (see 3.17).
 
 ## How to run
 
@@ -75,8 +76,9 @@ cd frontend && npm test
 | 3.14 | Load failure for the status list or history | Clear message | Service gives a message. No screen loads these yet | Partial | `loadBoardStatuses` / `loadStatusHistory` tests |
 | 3.15 | Every adapter can be mocked | Runs fully on mocks | Item and history stores are in-memory, behind interfaces | Pass | All tests above |
 | 3.16 | OPC receives no writes | No OPC calls | No OPC code anywhere in this story | Pass | Code review |
-| 3.17 | Status changed from the action items table | Chooser in each row's status column | Table not on `main` yet | Blocked | Needs `SaihajP/AT-8` merged |
-| 3.18 | Table and history read the same stored item | One shared store | This story's store and the table's mock store are separate until AT-8 merges | Blocked | Needs the shared item store |
+| 3.17 | Status changed from the action items table | Chooser in each row's status column, saved with history | As expected. Also checked in the browser: menu shows all six statuses above the table, the row and history both update | Pass | `saves status changes through the status chooser`, `keeps the old status and explains…` |
+| 3.18 | Table and history read the same stored item | One shared store | Status endpoints use the table's `MOCK_ACTION_ITEMS` | Pass | `test_status_change_shows_in_the_action_items_table`, `test_item_added_from_the_table_can_change_status` |
+| 3.19 | Status changed through the general item update | Checked and recorded in history | `PATCH /items/{id}` with a status goes through the status service | Pass | `test_table_update_records_status_in_history`, `test_table_update_rejects_unknown_status` |
 
 No failures, so no bug reports for this story.
 
@@ -96,9 +98,10 @@ Open http://localhost:8000/docs and use the **Item status** section:
 4. **History:** `GET /api/boards/project-1/items/2/history` shows both changes, newest first. *(Criterion 2)*
 5. **Invalid status:** PATCH with `"Done"` returns 422 with the allowed list.
 6. **No access:** PATCH on `team-restricted` returns 404.
-7. **Team board:** PATCH on `team-1`, item 4, works the same way.
 
-Then show the chooser and its error states by running the tests:
+Then start the frontend (`cd frontend && npm run dev`), open http://localhost:5173, open **Sample Project**, and change a status from the table's Status column. Run step 4 again to show the new history entry.
+
+To show the error states, run the tests:
 
 ```bash
 cd frontend && npx vitest run src/components/StatusChooser --reporter verbose
@@ -108,9 +111,5 @@ Point out the keyboard, saving, failure, lost-connection and read-only tests by 
 
 ## Not covered yet
 
-- **Chooser in the action items table (3.17)** and **one shared item store (3.18):** when `SaihajP/AT-8` merges, do three things:
-  - make the status endpoints use the same item store as `GET /api/boards/{id}/items`
-  - place `StatusChooser` in the table's status column, calling `changeItemStatus`
-  - re-run this document's checks in the browser
 - **Load-failure screens (3.14):** the history and status-list API calls are ready, but no screen uses them yet. Check whether the Figma design has a history view.
 - **Visual check against the Figma design:** not done in this run.

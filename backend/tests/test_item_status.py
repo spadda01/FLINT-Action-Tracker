@@ -1,15 +1,37 @@
 import time
+from copy import deepcopy
 
 import pytest
 from fastapi.testclient import TestClient
 
+from app.adapters.mock_action_items import MOCK_ACTION_ITEMS
 from app.api.item_status import get_status_service
 from app.db.item_status_repository import (
     InMemoryActionItemStore,
     InMemoryStatusHistoryStore,
 )
 from app.main import app
+from app.schemas.action_item import ActionItem
 from app.services.status_service import DEFAULT_STATUSES, StatusService
+
+
+def make_item(item_id, title, status):
+    return ActionItem(
+        id=item_id, section="General", priority="Medium", title=title,
+        owners=[], target="", hardDate=None, status=status, attention=False,
+    )
+
+
+# Each test gets its own items, so the shared table items are never changed.
+def make_items():
+    return {
+        "project-1": [
+            make_item(1, "Review construction drawings", "In Progress"),
+            make_item(2, "Confirm material delivery", "Not Started"),
+        ],
+        "project-2": [make_item(3, "Schedule owner walkthrough", "Open")],
+        "team-1": [make_item(4, "Update A&E drawing templates", "Open")],
+    }
 
 
 class FakeClock:
@@ -29,7 +51,7 @@ def client(monkeypatch):
 
     # A fresh store per test so changes don't leak between tests.
     service = StatusService(
-        InMemoryActionItemStore(), InMemoryStatusHistoryStore(), now=FakeClock()
+        InMemoryActionItemStore(make_items()), InMemoryStatusHistoryStore(), now=FakeClock()
     )
     app.dependency_overrides[get_status_service] = lambda: service
     with TestClient(app) as test_client:
@@ -279,7 +301,7 @@ def test_non_numeric_item_id_is_rejected(client):
 def test_real_clock_records_utc_time():
     from datetime import datetime
 
-    service = StatusService(InMemoryActionItemStore(), InMemoryStatusHistoryStore())
+    service = StatusService(InMemoryActionItemStore(make_items()), InMemoryStatusHistoryStore())
     result = service.change_status("project-1", 2, "Complete", "user-1")
 
     changed_at = datetime.fromisoformat(result["change"]["changedAt"])
@@ -300,7 +322,7 @@ class SlowItemStore(InMemoryActionItemStore):
 def test_two_users_changing_the_same_item_at_once_keep_history_in_order():
     from concurrent.futures import ThreadPoolExecutor
 
-    service = StatusService(SlowItemStore(), InMemoryStatusHistoryStore())
+    service = StatusService(SlowItemStore(make_items()), InMemoryStatusHistoryStore())
     changes = [("user-1", "Scheduled"), ("user-2", "Complete")]
 
     with ThreadPoolExecutor(max_workers=2) as pool:
@@ -315,3 +337,58 @@ def test_two_users_changing_the_same_item_at_once_keep_history_in_order():
     assert entries[1]["oldStatus"] == entries[0]["newStatus"]
     assert service.get_item("project-1", 2)["status"] == entries[1]["newStatus"]
     assert {e["actorId"] for e in entries} == {"user-1", "user-2"}
+
+
+# --- Shared with the action items table ---
+
+@pytest.fixture
+def shared_client(client, monkeypatch):
+    # Uses the table's own items; monkeypatch puts the originals back afterwards.
+    monkeypatch.setitem(
+        MOCK_ACTION_ITEMS, "project-1", deepcopy(MOCK_ACTION_ITEMS["project-1"])
+    )
+    service = StatusService(InMemoryActionItemStore(), InMemoryStatusHistoryStore())
+    app.dependency_overrides[get_status_service] = lambda: service
+    return client
+
+
+def table_status(client, board_id, item_id):
+    items = client.get(f"/api/boards/{board_id}/items").json()
+    return next(item["status"] for item in items if item["id"] == item_id)
+
+
+def test_status_change_shows_in_the_action_items_table(shared_client):
+    change(shared_client, "project-1", 2, "Scheduled")
+
+    assert table_status(shared_client, "project-1", 2) == "Scheduled"
+
+
+def test_item_added_from_the_table_can_change_status(shared_client):
+    created = shared_client.post(
+        "/api/boards/project-1/items", json={"title": "Order rebar"}
+    ).json()
+
+    response = change(shared_client, "project-1", created["id"], "In Progress")
+
+    assert response.status_code == 200
+    assert response.json()["change"]["oldStatus"] == "Not Started"
+
+
+def test_table_update_records_status_in_history(shared_client):
+    response = shared_client.patch(
+        "/api/boards/project-1/items/2", json={"status": "Complete"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "Complete"
+    assert history(shared_client, "project-1", 2).json()[0]["newStatus"] == "Complete"
+
+
+def test_table_update_rejects_unknown_status(shared_client):
+    response = shared_client.patch(
+        "/api/boards/project-1/items/2", json={"status": "Done"}
+    )
+
+    assert response.status_code == 422
+    assert table_status(shared_client, "project-1", 2) == "Not Started"
+    assert history(shared_client, "project-1", 2).json() == []

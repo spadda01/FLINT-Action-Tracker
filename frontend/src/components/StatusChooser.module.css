@@ -44,9 +44,8 @@
 
 /* Popup list, sized like the status menu in the Figma design. */
 .menu {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0;
+    /* top and left are set in StatusChooser.tsx from the button's position. */
+    position: fixed;
     z-index: 10;
     display: flex;
     flex-direction: column;

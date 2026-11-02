@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from copy import deepcopy
+
+from app.adapters.mock_action_items import MOCK_ACTION_ITEMS
 
 
 class ActionItemStore(ABC):
@@ -22,39 +23,34 @@ class StatusHistoryStore(ABC):
         pass
 
 
-# Sample items until the shared action-item store is merged. Ids and titles
-# match the action items table's mock data so the two line up.
-SAMPLE_ITEMS = {
-    "project-1": [
-        {"id": 1, "title": "Review construction drawings", "status": "In Progress"},
-        {"id": 2, "title": "Confirm material delivery", "status": "Not Started"},
-    ],
-    "project-2": [
-        {"id": 3, "title": "Schedule owner walkthrough", "status": "Open"},
-    ],
-    "team-1": [
-        {"id": 4, "title": "Update A&E drawing templates", "status": "Open"},
-    ],
-}
-
-
+# Reads and writes the same action items as the action items table
+# (MOCK_ACTION_ITEMS), so a status change shows up in the table too.
 # Kept in memory, so changes are lost when the server restarts.
 class InMemoryActionItemStore(ActionItemStore):
+    # Tests pass their own items so they don't change the shared ones.
     def __init__(self, items=None):
-        self.items = deepcopy(SAMPLE_ITEMS if items is None else items)
+        self.items = MOCK_ACTION_ITEMS if items is None else items
+
+    def _find(self, board_id, item_id):
+        for item in self.items.get(board_id, []):
+            if item.id == item_id:
+                return item
+        return None
+
+    @staticmethod
+    def _summary(board_id, item):
+        return {"id": item.id, "boardId": board_id, "title": item.title, "status": item.status}
 
     def get_item(self, board_id, item_id):
-        for item in self.items.get(board_id, []):
-            if item["id"] == item_id:
-                return {**item, "boardId": board_id}
-        return None
+        item = self._find(board_id, item_id)
+        return None if item is None else self._summary(board_id, item)
 
     def save_status(self, board_id, item_id, status):
-        for item in self.items.get(board_id, []):
-            if item["id"] == item_id:
-                item["status"] = status
-                return {**item, "boardId": board_id}
-        return None
+        item = self._find(board_id, item_id)
+        if item is None:
+            return None
+        item.status = status
+        return self._summary(board_id, item)
 
 
 class InMemoryStatusHistoryStore(StatusHistoryStore):

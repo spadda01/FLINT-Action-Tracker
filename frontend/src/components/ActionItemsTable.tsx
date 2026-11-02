@@ -1,5 +1,7 @@
 import { Fragment, useEffect, useState } from 'react'
 import { announcePriorityUpdate, subscribeToPriorityUpdates, announceActionItemCreated } from '../services/priorityEvents'
+import { changeItemStatus } from '../services/itemStatusService'
+import StatusChooser from './StatusChooser'
 
 // store each of the owner's name and whether they work outside flint
 type ActionOwner = {
@@ -20,7 +22,7 @@ type ActionItem = {
     attention: boolean
 }
 
-type EditableField = 'priority' | 'target' | 'status'
+type EditableField = 'priority' | 'target'
 
 type EditingCell = {
     itemId: number
@@ -145,33 +147,15 @@ function ActionItemsTable({ boardId }: ActionItemsTableProps) {
         }
     }
 
-    //save status changes to the backend
+    // Saves through the status endpoint so the change is recorded in history.
+    // Errors are left to StatusChooser, which shows them next to the item.
     async function saveStatus(itemId: number, newStatus: string) {
-        setSaveError(null)
-        try {
-            const response = await fetch(
-                `/api/boards/${encodeURIComponent(boardId)}/items/${itemId}`,
-                {
-                    method: 'PATCH',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ status: newStatus }),
-                }
+        const result = await changeItemStatus(boardId, itemId, newStatus)
+        setItems((previousItems) =>
+            previousItems.map((item) =>
+                item.id === itemId ? { ...item, status: result.item.status } : item
             )
-            if (!response.ok) {
-                throw new Error('Failed to save status')
-            }
-            const updatedItem: ActionItem = await response.json()
-            setItems((previousItems) =>
-                previousItems.map((item) =>
-                    item.id === itemId ? updatedItem : item
-                )
-            )
-        } catch (error) {
-            console.error('Error saving status:', error)
-            setSaveError('Unable to save your changes. Please try again.')
-        }
+        )
     }
 
     // create a new action item and add it to the table.
@@ -402,38 +386,11 @@ function ActionItemsTable({ boardId }: ActionItemsTableProps) {
                                             {formatHardDate(item.hardDate)}
                                         </td>
                                         <td>
-                                            {editingCell?.itemId === item.id && editingCell.field === 'status' ? (
-                                                <select
-                                                    defaultValue={item.status}
-                                                    aria-label={`Edit status for ${item.title}`}
-                                                    autoFocus
-                                                    onKeyDown={(event) => {
-                                                        if (event.key === 'Enter') {
-                                                            event.preventDefault()
-                                                            const newStatus = event.currentTarget.value
-                                                            void saveStatus(item.id, newStatus)
-                                                            setEditingCell(null)
-                                                        }
-                                                        if (event.key === 'Escape') {
-                                                            event.preventDefault()
-                                                            setEditingCell(null)
-                                                        }
-                                                    }}
-                                                >
-                                                    <option value="Not Started">Not Started</option>
-                                                    <option value="In Progress">In Progress</option>
-                                                    <option value="Done">Done</option>
-                                                </select>
-                                            ) : (
-                                                <button
-                                                    type="button"
-                                                    className={`status-pill status-${item.status.toLowerCase().replace(/\s+/g, '-')}`}
-                                                    onClick={() => startEditing(item.id, 'status')}
-                                                    aria-label={`Edit status for ${item.title}`}
-                                                >
-                                                    {item.status}
-                                                </button>
-                                            )}
+                                            <StatusChooser
+                                                itemTitle={item.title}
+                                                status={item.status}
+                                                onChange={(next) => saveStatus(item.id, next)}
+                                            />
                                         </td>
                                         <td>
                                             {item.attention ? (
