@@ -296,4 +296,31 @@ describe('ActionItemsTable', () => {
             }),
         ).toHaveValue('  Before\njob walk  ')
     })
+
+    test('filters action items that need attention', async () => {
+        const user = userEvent.setup()
+
+        // Flag only the first item for attention.
+        items[0].attention = true
+
+        render(<ActionItemsTable boardId="project-1" />)
+
+        await user.click(
+            await screen.findByRole('button', {
+                name: 'Needs attention only',
+            }),
+        )
+
+        expect(screen.getByText('Confirm site access')).toBeInTheDocument()
+        expect(screen.queryByText('Issue revised drawings')).not.toBeInTheDocument()
+        expect(screen.queryByText('Coordinate review')).not.toBeInTheDocument()
+
+        // Switching off the filter restores all items.
+        await user.click(
+            screen.getByRole('button', { name: 'Show all items' }),
+        )
+
+        expect(screen.getByText('Issue revised drawings')).toBeInTheDocument()
+        expect(screen.getByText('Coordinate review')).toBeInTheDocument()
+    })
 })
