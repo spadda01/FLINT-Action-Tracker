@@ -9,6 +9,7 @@ import { searchBoards } from './components/board_search'
 import { openBoard } from './components/navigation'
 import { moveBoardToFront } from './components/recently_opened_ordering'
 import CreateProjectBoard from './pages/CreateProjectBoard'
+import CreateTeamBoard from './pages/CreateTeamBoard'
 
 // read the selected board from a URL such as #/boards/project-1.
 function boardIdFromLocation(): string | null {
@@ -34,12 +35,16 @@ function App() {
     const [isCreatingProject, setIsCreatingProject] = useState(
         () => window.location.hash === '#/create-project-board',
     )
+    const [isCreatingTeam, setIsCreatingTeam] = useState(
+        () => window.location.hash === '#/create-team-board',
+    )
 
     // keep the displayed board in sync with navigation and browser back/forward
     useEffect(() => {
         const syncRoute = () => {
             setBoardId(boardIdFromLocation())
             setIsCreatingProject(window.location.hash === '#/create-project-board',)
+            setIsCreatingTeam(window.location.hash === '#/create-team-board')
         }
         window.addEventListener('hashchange', syncRoute)
         return () => { window.removeEventListener('hashchange', syncRoute) }
@@ -106,6 +111,17 @@ function App() {
         searchText.trim() !== '' &&
         projectBoards.length + teamBoards.length === 0
 
+    if (isCreatingTeam) {
+        return (
+            <main className="boards-page">
+                <a className="boards-back" href="#/">
+                    Back to boards
+                </a>
+                <CreateTeamBoard />
+            </main>
+        )
+    }
+
     // keep the project-creation screen accessible from the dashboard
     if (isCreatingProject) {
         return (
@@ -125,81 +141,91 @@ function App() {
             <header>
                 <h1>FLINT Action Tracker</h1>
                 <p>Find and open your project and team boards.</p>
-                <a className="boards-back" href="#/create-project-board">
-                    Create project board
-                </a>
+                <nav
+                    aria-label="Board creation"
+                    style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}
+                >
+                    <a className="boards-back" href="#/create-project-board">
+                        Create project board
+                    </a>
+                    <a className="boards-back" href="#/create-team-board">
+                        Create team board
+                    </a>
+                </nav>
             </header>
 
-            {isLoading ? (
-                <p role="status">Loading your boards…</p>
-            ) : error ? (
-                <section className="boards-error" aria-label="Board loading error">
-                    <p role="alert">{error}</p>
-                    <button type="button" className="boards-retry" onClick={() => setLoadAttempt((attempt) => attempt + 1)}>
-                        Retry
-                    </button>
-                </section>
-            ) : boardId ? (
-                <BoardPage
-                    key={boardId}
-                    boardId={boardId}
-                    onOpened={recordOpened}
-                />
-            ) : (
-                <>
-                    <form
-                        className="board-search"
-                        role="search"
-                        onSubmit={(event) => event.preventDefault()}
-                    >
-                        <label htmlFor="board-search">Search boards</label>
+            {
+                isLoading ? (
+                    <p role="status">Loading your boards…</p>
+                ) : error ? (
+                    <section className="boards-error" aria-label="Board loading error">
+                        <p role="alert">{error}</p>
+                        <button type="button" className="boards-retry" onClick={() => setLoadAttempt((attempt) => attempt + 1)}>
+                            Retry
+                        </button>
+                    </section>
+                ) : boardId ? (
+                    <BoardPage
+                        key={boardId}
+                        boardId={boardId}
+                        onOpened={recordOpened}
+                    />
+                ) : (
+                    <>
+                        <form
+                            className="board-search"
+                            role="search"
+                            onSubmit={(event) => event.preventDefault()}
+                        >
+                            <label htmlFor="board-search">Search boards</label>
 
-                        <div className="board-search-controls">
-                            <input
-                                id="board-search"
-                                type="search"
-                                value={searchText}
-                                onChange={(event) => setSearchText(event.target.value)}
-                            />
+                            <div className="board-search-controls">
+                                <input
+                                    id="board-search"
+                                    type="search"
+                                    value={searchText}
+                                    onChange={(event) => setSearchText(event.target.value)}
+                                />
 
-                            <button
-                                type="button"
-                                onClick={() => setSearchText('')}
-                                disabled={searchText.length === 0}
-                            >
-                                Clear search
-                            </button>
-                        </div>
-                    </form>
+                                <button
+                                    type="button"
+                                    onClick={() => setSearchText('')}
+                                    disabled={searchText.length === 0}
+                                >
+                                    Clear search
+                                </button>
+                            </div>
+                        </form>
 
-                    {noMatches ? (
-                        <section className="board-list" aria-label="Search results">
-                            <h2>No matching boards</h2>
-                            <p role="status">
-                                No boards match your search. Try another name or
-                                clear your search.
-                            </p>
-                        </section>
-                    ) : (
-                        <>
-                            <BoardList
-                                title="Project Boards"
-                                headingId="project-heading"
-                                boards={projectBoards}
-                                onSelectBoard={selectBoard}
-                            />
+                        {noMatches ? (
+                            <section className="board-list" aria-label="Search results">
+                                <h2>No matching boards</h2>
+                                <p role="status">
+                                    No boards match your search. Try another name or
+                                    clear your search.
+                                </p>
+                            </section>
+                        ) : (
+                            <>
+                                <BoardList
+                                    title="Project Boards"
+                                    headingId="project-heading"
+                                    boards={projectBoards}
+                                    onSelectBoard={selectBoard}
+                                />
 
-                            <BoardList
-                                title="Team Boards"
-                                headingId="team-heading"
-                                boards={teamBoards}
-                                onSelectBoard={selectBoard}
-                            />
-                        </>
-                    )}
-                </>
-            )}
-        </main>
+                                <BoardList
+                                    title="Team Boards"
+                                    headingId="team-heading"
+                                    boards={teamBoards}
+                                    onSelectBoard={selectBoard}
+                                />
+                            </>
+                        )}
+                    </>
+                )
+            }
+        </main >
     )
 }
 
