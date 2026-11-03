@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from app.schemas.action_items import TargetValue
 
 
 class ActionOwner(BaseModel):
@@ -12,7 +13,7 @@ class ActionItem(BaseModel):
     priority: str
     title: str
     owners: list[ActionOwner]
-    target: str
+    target: str | TargetValue
     hardDate: str | None
     status: str
     attention: bool

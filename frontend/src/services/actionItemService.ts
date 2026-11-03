@@ -53,8 +53,8 @@ export async function saveActionItemTarget(
             {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                // The backend currently stores targets as strings.
-                body: JSON.stringify({ target: target.value }),
+                // Preserve the selected target type when the board is reopened.
+                body: JSON.stringify({ target }),
             },
         )
     } catch {

@@ -3,7 +3,7 @@ import { loadMemberOptions, type MemberOption } from '../services/memberService'
 import { useSaveTeamBoard } from '../services/useSaveTeamBoard'
 import type { BoardMemberSelection } from '../types/board'
 
-function CreateTeamBoard() {
+function CreateTeamBoard({ onCreated }: { onCreated?: () => void }) {
   const [members, setMembers] = useState<MemberOption[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -46,16 +46,17 @@ function CreateTeamBoard() {
         }
       })
 
-    await save({
+    const result = await save({
       name: boardName.trim(),
       members: boardMembers,
       egnyteFolderUrl: egnyteLink.trim(),
     })
+    if (result.ok) onCreated?.()
   }
 
   return (
     <section>
-      <h1>Create Team Board</h1>
+      <h2>Create Team Board</h2>
       <form onSubmit={handleCreateBoard}>
         <div>
           <label htmlFor="team-board-name">Board Name*</label>

@@ -63,13 +63,13 @@ beforeEach(() => {
         if (init?.method === 'PATCH' && /\/items\/\d+$/.test(path)) {
             if (failSave) return new Response(null, { status: 500 })
 
-            const { target } = JSON.parse(String(init.body)) as { target: string }
+            const { target } = JSON.parse(String(init.body)) as { target: ActionItem['target'] }
             const itemId = Number(path.split('/').at(-1))
             const item = items.find((current) => current.id === itemId)
 
             if (!item) return new Response(null, { status: 404 })
 
-            // Match the backend's string-based target storage.
+            // Match the backend's typed target storage.
             item.target = target
 
             return new Response(JSON.stringify(item), { status: 200 })
@@ -134,7 +134,7 @@ describe('ActionItemsTable', () => {
             expect.objectContaining({
                 method: 'PATCH',
                 body: JSON.stringify({
-                    target: '2026-10-28',
+                    target: { type: 'date', value: '2026-10-28' },
                 }),
             }),
         )
@@ -157,13 +157,13 @@ describe('ActionItemsTable', () => {
         await user.keyboard('{Enter}')
 
         expect(await screen.findByText('Target saved.')).toBeInTheDocument()
-        expect(items[0].target).toBe(exactText)
+        expect(items[0].target).toEqual({ type: 'text', value: exactText })
         expect(fetchMock).toHaveBeenLastCalledWith(
             '/api/boards/project-1/items/1',
             expect.objectContaining({
                 method: 'PATCH',
                 body: JSON.stringify({
-                    target: exactText,
+                    target: { type: 'text', value: exactText },
                 }),
             }),
         )
@@ -323,4 +323,21 @@ describe('ActionItemsTable', () => {
         expect(screen.getByText('Issue revised drawings')).toBeInTheDocument()
         expect(screen.getByText('Coordinate review')).toBeInTheDocument()
     })
+})
+
+test('search updates the table and explains when no items match', async () => {
+    const user = userEvent.setup()
+    render(<ActionItemsTable boardId="project-1" />)
+    await screen.findByText('Confirm site access')
+    const search = screen.getByRole('searchbox', { name: 'Search action items' })
+    await user.type(search, 'revised')
+    expect(screen.getByText('Issue revised drawings')).toBeInTheDocument()
+    expect(screen.queryByText('Confirm site access')).not.toBeInTheDocument()
+    await user.clear(search)
+    await user.type(search, 'no matching action')
+    expect(screen.getByText('No action items match your search or filter.')).toBeInTheDocument()
+    await user.clear(search)
+    expect(screen.getByText('Confirm site access')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '+ Add action item' }))
+    expect(screen.getByRole('textbox', { name: 'New action item title' })).toHaveFocus()
 })

@@ -427,3 +427,29 @@ def test_quick_entry_keeps_items_separate_between_boards(client):
     assert len(first_items) == 1
     assert first_items[0]["title"] == "First board action"
     assert second_items == []
+
+
+def test_project_board_creation_uses_shared_access_and_item_store(client):
+    response = client.post('/api/boards/project', json=valid_board(projectId='P001'))
+    assert response.status_code == 201
+    board = response.json()
+    assert board['type'] == 'Project'
+    assert board['projectId'] == 'P001'
+    assert any(entry['id'] == board['id'] for entry in client.get('/api/boards').json())
+    assert client.get(f"/api/boards/{board['id']}").status_code == 200
+    item_response = client.post(f"/api/boards/{board['id']}/items", json={'title': 'First action'})
+    assert item_response.status_code == 201
+    item_id = item_response.json()['id']
+    assert client.get(f"/api/boards/{board['id']}/priorities").json()[0]['id'] == item_id
+    status_response = client.patch(f"/api/boards/{board['id']}/items/{item_id}/status", json={'status': 'Complete'})
+    assert status_response.status_code == 200
+    assert client.get(f"/api/boards/{board['id']}/items").json()[0]['status'] == 'Complete'
+
+
+def test_project_board_allows_no_project_and_rejects_unknown_projects(client):
+    assert client.post('/api/boards/project', json=valid_board()).status_code == 201
+    invalid = client.post('/api/boards/project', json=valid_board(projectId='missing'))
+    assert invalid.status_code == 422
+    assert 'projectId' in invalid.json()['errors']
+    invalid_member = client.post('/api/boards/project', json=valid_board(members=[{'type': 'user', 'id': 'missing'}]))
+    assert invalid_member.status_code == 422

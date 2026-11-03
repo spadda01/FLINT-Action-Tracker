@@ -1,9 +1,8 @@
 import os
 
-from fastapi import Body, Depends, FastAPI, Header, HTTPException
-
-from app.schemas.action_items import ActionItem, TargetUpdate
 from fastapi import Depends, FastAPI, Header, HTTPException
+
+from app.schemas.action_items import TargetValue
 from app.api.priorities import router as priorities_router
 from app.adapters.boards import BoardRepository, MockBoardRepository
 from app.api.boards import get_board_service, router as boards_router
@@ -19,7 +18,6 @@ from app.adapters.mock_action_items import (
     update_mock_action_item,
 )
 from app.schemas.action_item import ActionItem, ActionItemCreate
-from app.services.priority_permissions import can_edit_priority
 from app.services.priority_service import PriorityService
 from app.services.status_service import (
     ItemNotFoundError,
@@ -31,7 +29,7 @@ from app.services.board_access import MOCK_EMPLOYEE_IDS, can_open_created_board
 
 
 class ActionItemUpdate(BaseModel):
-    target: str | None = None
+    target: str | TargetValue | None = None
     priority: str | None = None
     status: str | None = None
 
@@ -39,11 +37,6 @@ class ActionItemUpdate(BaseModel):
 app = FastAPI(title="FLINT Action Tracker API")
 app.include_router(priorities_router)
 services = create_services()
-action_item_repository = (
-    create_mock_action_item,
-    get_mock_action_items,
-    update_mock_action_item,
-)
 
 
 def require_mock_mode() -> None:
@@ -145,10 +138,6 @@ def require_board_access(
         raise HTTPException(status_code=404, detail="Board not found.")
 
 
-@app.get(
-    "/api/boards/{board_id}/items",
-    response_model=list[ActionItem],
-)
 @app.get("/api/boards/{board_id}/items", response_model=list[ActionItem])
 def get_board_items(
     board_id: str,
