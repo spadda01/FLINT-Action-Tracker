@@ -401,3 +401,75 @@ test('Tab reaches Filters and Add item; cancelled dialog does not create an item
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: '+ Add item' })).toHaveFocus()
 })
+
+test.each(['project-1', 'team-1'])(
+  'shows matching items out of each section total on %s',
+  async (boardId) => {
+    items.push(
+      {
+        ...seed[0],
+        id: 3,
+        title: 'Inspect equipment',
+        priority: 'Low',
+        attention: false,
+      },
+      { ...seed[0], id: 4, title: 'Request quote', attention: false },
+    )
+    sections.push({ id: 's3', name: 'Empty section' })
+    const user = userEvent.setup()
+    render(<BoardWorkspace boardId={boardId} />)
+    const procurement = await screen.findByRole('region', {
+      name: 'Procurement section',
+    })
+    const coordination = screen.getByRole('region', {
+      name: 'Coordination section',
+    })
+    expect(within(procurement).getByText('3 of 3 items')).toBeInTheDocument()
+    expect(within(coordination).getByText('1 of 1 item')).toBeInTheDocument()
+    expect(
+      within(
+        screen.getByRole('region', { name: 'Empty section section' }),
+      ).getByText('0 of 0 items'),
+    ).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Filters' }))
+    await user.click(screen.getByLabelText('Attention items only'))
+    await user.click(screen.getByRole('button', { name: 'Apply' }))
+    expect(within(procurement).getByText('1 of 3 items')).toBeInTheDocument()
+    expect(within(coordination).getByText('0 of 1 item')).toBeInTheDocument()
+
+    const search = screen.getByRole('searchbox', {
+      name: 'Search action items',
+    })
+    await user.type(search, 'missing')
+    expect(within(procurement).getByText('0 of 3 items')).toBeInTheDocument()
+    await user.clear(search)
+    await user.click(screen.getByRole('button', { name: 'Filters •' }))
+    await user.click(screen.getByRole('button', { name: 'Clear' }))
+    await user.type(search, 'equipment')
+    expect(within(procurement).getByText('2 of 3 items')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Filters' }))
+    await user.selectOptions(
+      screen.getByLabelText('Priority', { exact: true }),
+      'Low',
+    )
+    await user.selectOptions(screen.getByLabelText('Sort items'), 'target')
+    await user.click(screen.getByRole('button', { name: 'Apply' }))
+    expect(within(procurement).getByText('1 of 3 items')).toBeInTheDocument()
+    await user.click(
+      screen.getByRole('button', { name: 'Clear view to move items' }),
+    )
+    expect(within(procurement).getByText('3 of 3 items')).toBeInTheDocument()
+
+    await user.type(
+      within(procurement).getByRole('textbox', {
+        name: 'New action item in Procurement',
+      }),
+      'New action{Enter}',
+    )
+    await waitFor(() =>
+      expect(within(procurement).getByText('4 of 4 items')).toBeInTheDocument(),
+    )
+  },
+)

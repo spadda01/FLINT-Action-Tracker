@@ -464,7 +464,8 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
                 {section.name}
               </button>
               <span className="max-section-count">
-                {rows.length} {rows.length === 1 ? 'item' : 'items'}
+                {rows.length} of {sectionItems.length}{' '}
+                {sectionItems.length === 1 ? 'item' : 'items'}
               </span>
               <div className="max-section-actions">
                 <button
