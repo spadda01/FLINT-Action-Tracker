@@ -128,7 +128,7 @@
   height: 40px;
 }
 .max-table th:nth-child(2) {
-  width: 30%;
+  width: 26%;
 }
 .max-table th:nth-child(3) {
   width: 18%;
@@ -140,7 +140,7 @@
   width: 14%;
 }
 .max-table th:nth-child(6) {
-  width: 8%;
+  width: 12%;
 }
 .max-table th:nth-child(7) {
   width: 8%;
@@ -281,7 +281,9 @@
   text-decoration: underline;
 }
 .max-cell-editor {
-  min-width: 160px;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
   font-size: 12px;
 }
 .max-cell-editor label {
@@ -290,6 +292,8 @@
 }
 .max-cell-editor :is(input:not([type='checkbox']), select, textarea) {
   display: block;
+  min-width: 0;
+  max-width: 100%;
   width: 100%;
   padding: 8px;
   border: 1px solid #dce5eb;
