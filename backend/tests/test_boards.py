@@ -33,7 +33,8 @@ def test_returns_correct_summary_without_memberships(client):
     response = client.get("/api/boards")
     assert response.status_code == 200
     boards = response.json()
-    assert boards[0] == {"id": "project-1", "name": "Sample Project", "type": "Project", "openItemCount": 5}
+    open_items = sum(item['status'] != 'Complete' for item in client.get('/api/boards/project-1/items').json())
+    assert boards[0] == {"id": "project-1", "name": "Sample Project", "type": "Project", "openItemCount": open_items}
 
     for board in boards:
         assert set(board) == {"id", "name", "type", "openItemCount"}
@@ -64,7 +65,7 @@ def test_direct_board_urls_do_not_bypass_access(client, board_id):
 def test_accessible_board_can_be_opened(client):
     response = client.get("/api/boards/project-2")
     assert response.status_code == 200
-    assert response.json() == {"id": "project-2", "name": "Sample Office Renovation","type": "Project", "openItemCount": 12}
+    assert response.json() == {"id": "project-2", "name": "Sample Office Renovation","type": "Project", "openItemCount": sum(item['status'] != 'Complete' for item in client.get('/api/boards/project-2/items').json())}
 
 #  values supplied by browser cannot change the server-selected mock identity
 def test_current_identity_comes_from_server_not_request(client):

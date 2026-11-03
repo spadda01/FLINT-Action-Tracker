@@ -53,11 +53,11 @@ def create_mock_action_item(
         section=new_item.section,
         priority=new_item.priority,
         title=new_item.title,
-        owners=[],
+        owners=new_item.owners,
         target=new_item.target,
-        hardDate=None,
+        hardDate=new_item.hardDate,
         status=new_item.status,
-        attention=False,
+        attention=new_item.attention,
     )
 
     items.append(created_item)

@@ -6,10 +6,14 @@ type Props = { boards: Board[]; boardId: string | null; children: ReactNode }
 export default function AppShell({ boards, boardId, children }: Props) {
   return (
     <div className="app-shell">
-      <a className="skip-link" href="#main-content" onClick={(event) => {
-        event.preventDefault()
-        document.getElementById('main-content')?.focus()
-      }}>
+      <a
+        className="skip-link"
+        href="#main-content"
+        onClick={(event) => {
+          event.preventDefault()
+          document.getElementById('main-content')?.focus()
+        }}
+      >
         Skip to content
       </a>
       <aside className="app-sidebar" aria-label="Workspace sidebar">
@@ -19,7 +23,7 @@ export default function AppShell({ boards, boardId, children }: Props) {
           aria-label="FLINT Action Tracker home"
         >
           <strong>FLINT</strong>
-          <span>ACTION TRACKER</span>
+          <span>Action Tracker</span>
         </a>
         <nav aria-label="Workspace navigation">
           <a
@@ -36,7 +40,7 @@ export default function AppShell({ boards, boardId, children }: Props) {
           </a>
           {(['Project', 'Team'] as const).map((type) => (
             <div className="sidebar-group" key={type}>
-              <h2>{type} Boards</h2>
+              <h2>{type === 'Team' ? 'Department' : 'Project'} Boards</h2>
               {boards
                 .filter((board) => board.type === type)
                 .map((board) => (

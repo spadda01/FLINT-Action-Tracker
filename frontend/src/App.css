@@ -842,3 +842,16 @@ summary:focus-visible {
 .action-items td button.priority-low {
   color: #52616d;
 }
+
+/* Use Max's white sidebar and pale board canvas across the integrated app. */
+.app-sidebar { background: #fff; }
+.flint-brand strong { font-weight: 500; letter-spacing: .23em; }
+.flint-brand span { font-size: 15px; letter-spacing: .18em; }
+.app-sidebar nav a[aria-current='page'] { background: #e6f0f5; box-shadow: none; color: #006098; }
+.app-sidebar nav a { font-weight: 400; }
+.sidebar-group h2 { text-transform: none; font-weight: 400; letter-spacing: normal; }
+.board-indicator { display: none; }
+.boards-page { background: #f5f8fa; }
+.board-workspace > h2 { font-weight: 500; margin-bottom: 0; }
+.priority-tools { margin-top: 28px; }
+@media (max-width: 800px) { .flint-brand span { font-size: 11px; } }

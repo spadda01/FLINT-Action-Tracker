@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Board } from '../boards'
 import { BoardRequestError, loadBoard } from '../services/boardService'
-import ActionItemsTable from './ActionItemsTable'
-import PriorityPanel from './PriorityPanel'
+import BoardWorkspace from './BoardWorkspace'
 
 type BoardPageProps = {
   boardId: string
@@ -63,10 +62,6 @@ function BoardPage({ boardId, onOpened }: BoardPageProps) {
 
   return (
     <>
-      <a className="boards-back" href="#/">
-        Back to boards
-      </a>
-
       {isLoading ? (
         <p role="status">Opening board…</p>
       ) : error ? (
@@ -87,28 +82,38 @@ function BoardPage({ boardId, onOpened }: BoardPageProps) {
             className="board-workspace"
             aria-labelledby="opened-board-heading"
           >
-            <h2 id="opened-board-heading" ref={heading} tabIndex={-1}>
+            <a className="boards-back max-board-return" href="#/">
+              Back to boards
+            </a>
+            <h1 id="opened-board-heading" ref={heading} tabIndex={-1}>
               {board.name}
-            </h2>
+              <span aria-hidden="true"> - Action Tracker</span>
+            </h1>
 
-            <dl className="board-summary">
-              <div>
-                <dt>Type</dt>
-                <dd>{board.type}</dd>
-              </div>
+            <p className="max-board-subtitle">
+              {board.type} Board — Coordination and Follow-up Items
+            </p>
+            <nav className="max-board-tabs" aria-label="Board views">
+              <button type="button" aria-current="page">
+                Table
+              </button>
+              <button
+                type="button"
+                disabled
+                title="Status Board is planned for a later sprint"
+              >
+                Status Board
+              </button>
+              <button
+                type="button"
+                disabled
+                title="Meeting view is planned for a later sprint"
+              >
+                Meeting
+              </button>
+            </nav>
+            <BoardWorkspace boardId={board.id} />
 
-              <div>
-                <dt>Open items</dt>
-                <dd>{board.openItemCount}</dd>
-              </div>
-            </dl>
-
-            {/* display the action items after the selected board loads. */}
-            <ActionItemsTable boardId={board.id} />
-            <details className="board-list priority-tools">
-              <summary>Priority tools</summary>
-              <PriorityPanel boardId={board.id} />
-            </details>
           </section>
         )
       )}

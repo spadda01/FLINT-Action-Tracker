@@ -3,7 +3,7 @@ Action Tracker for FLINT Design replaces weekly spreadsheets with shared project
 
 ## Run the integrated application
 
-Use `frontend/` for the shared dashboard, board sidebar, board creation, and action-item workspace. Its layout adapts the FLINT interface from `Action_Tracker/` while retaining the backend-connected components. `Action_Tracker/` and `Project_Board/` are standalone reference apps; starting their dev servers does not launch the integrated app.
+Use `frontend/` for the shared dashboard, board sidebar, board creation, and action-item workspace. The board workspace uses Max’s `Action_Tracker/` section-table layout with shared backend data and the existing status, target, and priority services. `Action_Tracker/` and `Project_Board/` are standalone reference apps; starting their dev servers does not launch the integrated app.
 
 From the repository root, install and start the mock backend:
 
@@ -37,6 +37,18 @@ Open the URL printed by Vite. The frontend proxies `/api` to `127.0.0.1:8000`.
 Project and team board creation use the same board repository and access checks. Project suggestions come from `/api/projects`; a project board may also be created without a linked project. Mock folder paths are not full web URLs, so enter a valid Egnyte folder URL. To reopen a newly created board, the current mock employee (`user-1` maps to `E001`) must be a selected member or belong to a selected group.
 
 Board and item data use in-memory mock storage and reset on backend restart. Recent-board history is stored per user in the browser. Dashboard manual ordering is not implemented in this integration.
+
+### Board workspace controls
+
+- Click a title, owners, target, hard date, or priority to edit it. Save confirms the change; failed saves keep the draft and offer Retry. Text targets preserve whitespace and line breaks.
+- Status and attention controls save to the shared item store. The add-item dialog saves all entered fields; title-only quick entry starts with Open status and Medium priority.
+- Drag a row's move handle to another row or an empty section. Keyboard users can open the handle's Move dialog, or use Alt+Up/Down to reorder within a section. Clear search, filters and sorting before moving items so the saved order is unambiguous.
+- Add, rename and order sections with the controls beside their headings. Quick entry is available in each section and keeps focus after Enter.
+- Filters apply attention/priority filtering and target/priority sorting. Search and filter selections are temporary view state and reset on page refresh.
+- Team-board creation uses a keyboard-accessible modal styled from `Project_Board/` with the shared member adapters and save service.
+- Status Board and Meeting remain disabled until those views are implemented. The old standalone apps are retained as reference implementations.
+
+Item edits, item ordering and section changes survive browser refresh while the mock backend runs. Mock storage is still in memory and resets on backend restart. The earlier acceptance audit in `docs/testing/` records the specific commit it tested; it is a historical snapshot rather than certification of newer changes.
 
 Validation:
 

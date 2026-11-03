@@ -11,6 +11,7 @@ import { moveBoardToFront } from './components/recently_opened_ordering'
 import CreateProjectBoard from './pages/CreateProjectBoard'
 import CreateTeamBoard from './pages/CreateTeamBoard'
 import AppShell from './components/AppShell'
+import WorkspaceDialog from './components/WorkspaceDialog'
 
 // read the selected board from a URL such as #/boards/project-1.
 function boardIdFromLocation(): string | null {
@@ -122,39 +123,47 @@ function App() {
   return (
     <AppShell boards={boards} boardId={boardId}>
       <main id="main-content" className="boards-page" tabIndex={-1}>
-        <header>
-          <h1>
-            {isCreatingTeam
-              ? 'Create Team Board'
-              : isCreatingProject
-                ? 'Create Project Board'
-                : boardId
-                  ? 'Board workspace'
-                  : 'Your boards'}
-          </h1>
-          <p>Find and open your project and team boards.</p>
-          <nav
-            aria-label="Board creation"
-            style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}
-          >
-            <a className="boards-back" href="#/create-project-board">
-              Create project board
-            </a>
-            <a className="boards-back" href="#/create-team-board">
-              Create team board
-            </a>
-          </nav>
-        </header>
+        {(!boardId || isCreatingTeam || isCreatingProject) && (
+          <header>
+            <h1>
+              {isCreatingTeam
+                ? 'Create Team Board'
+                : isCreatingProject
+                  ? 'Create Project Board'
+                  : boardId
+                    ? 'Board workspace'
+                    : 'Your boards'}
+            </h1>
+            <p>Find and open your project and team boards.</p>
+            <nav
+              aria-label="Board creation"
+              style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}
+            >
+              <a className="boards-back" href="#/create-project-board">
+                Create project board
+              </a>
+              <a className="boards-back" href="#/create-team-board">
+                Create team board
+              </a>
+            </nav>
+          </header>
+        )}
 
         {isCreatingTeam ? (
-          <section className="board-list creation-page">
-            <a className="boards-back" href="#/">
-              Back to boards
-            </a>
+          <WorkspaceDialog
+            title="Create Team Board"
+            onClose={() => {
+              window.location.hash = '#/'
+            }}
+          >
             <CreateTeamBoard
+              hideHeading
+              onCancel={() => {
+                window.location.hash = '#/'
+              }}
               onCreated={() => setLoadAttempt((attempt) => attempt + 1)}
             />
-          </section>
+          </WorkspaceDialog>
         ) : isCreatingProject ? (
           <section className="board-list creation-page">
             <a className="boards-back" href="#/">

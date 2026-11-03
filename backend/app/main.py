@@ -2,8 +2,7 @@ import os
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 
-from app.schemas.action_items import TargetValue
-from app.api.priorities import router as priorities_router
+from app.api.priorities import router as priorities_router, priority_service as configured_priorities
 from app.adapters.boards import BoardRepository, MockBoardRepository
 from app.api.boards import get_board_service, router as boards_router
 from app.api.item_status import get_status_service, router as item_status_router
@@ -15,27 +14,21 @@ from app.services.service_factory import create_services
 from app.adapters.mock_action_items import (
     create_mock_action_item,
     get_mock_action_items,
-    update_mock_action_item,
 )
-from app.schemas.action_item import ActionItem, ActionItemCreate
-from app.services.priority_service import PriorityService
+from app.schemas.action_item import ActionItem, ActionItemCreate, ActionItemUpdate
+from app.adapters.board_sections import WORKSPACE_LOCK, ensure_section
+from app.api.workspace import router as workspace_router
 from app.services.status_service import (
     ItemNotFoundError,
     StatusService,
     StatusValidationError,
 )
-from pydantic import BaseModel
 from app.services.board_access import MOCK_EMPLOYEE_IDS, can_open_created_board
-
-
-class ActionItemUpdate(BaseModel):
-    target: str | TargetValue | None = None
-    priority: str | None = None
-    status: str | None = None
 
 
 app = FastAPI(title="FLINT Action Tracker API")
 app.include_router(priorities_router)
+app.include_router(workspace_router)
 services = create_services()
 
 
@@ -106,7 +99,9 @@ def get_boards(
         for board in service.repository.list_boards()
         if can_open_created_board(board, user_id, service)
     )
-    return boards
+    return [board.model_copy(update={"openItemCount": sum(
+        item.status != "Complete" for item in get_mock_action_items(board.id)
+    )}) for board in boards]
 
 
 @app.get("/api/boards/{board_id}", response_model=Board | BoardSummary)
@@ -118,12 +113,16 @@ def get_board(
 ) -> Board | BoardSummary:
     for board in list_accessible_boards(user_id, repository):
         if board.id == board_id:
-            return board
+            return board.model_copy(update={"openItemCount": sum(
+                item.status != "Complete" for item in get_mock_action_items(board_id)
+            )})
 
     # Preserve the saved board's full details, but only for an allowed member.
     saved_board = service.get_board(board_id)
     if saved_board and can_open_created_board(saved_board, user_id, service):
-        return Board.model_validate(saved_board)
+        return Board.model_validate({**saved_board, "openItemCount": sum(
+            item.status != "Complete" for item in get_mock_action_items(board_id)
+        )})
     raise HTTPException(status_code=404, detail="Board not found.")
 
 
@@ -157,6 +156,7 @@ def create_board_item(
     user_id: str = Depends(get_current_user_id),
     repository: BoardRepository = Depends(get_board_repository),
     service: BoardService = Depends(get_board_service),
+    status_service: StatusService = Depends(get_status_service),
 ) -> ActionItem:
     require_board_access(board_id, user_id, repository, service)
 
@@ -166,7 +166,15 @@ def create_board_item(
             detail="Action item title cannot be empty.",
         )
 
-    return create_mock_action_item(board_id, new_item)
+    try:
+        configured_priorities.validate_priority(new_item.priority)
+        if new_item.status not in status_service.statuses_for_board(board_id):
+            raise ValueError("Choose a status on this board.")
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    with WORKSPACE_LOCK:
+        ensure_section(board_id, new_item.section)
+        return create_mock_action_item(board_id, new_item)
 
 
 @app.patch("/api/boards/{board_id}/items/{item_id}", response_model=ActionItem)
@@ -182,36 +190,27 @@ def update_board_item_target(
     # Verify board access before allowing an update.
     require_board_access(board_id, user_id, repository, service)
 
-    # Status changes go through the status service, so they're checked
-    # against the board's statuses and recorded in the item's history.
-    if update.status is not None:
-        try:
-            status_service.change_status(board_id, item_id, update.status, user_id)
-        except StatusValidationError as error:
-            raise HTTPException(status_code=422, detail=error.message) from error
-        except ItemNotFoundError as error:
-            raise HTTPException(status_code=404, detail="Action item not found.") from error
-
+    # Validate every requested value before changing any shared item state.
     if update.priority is not None:
         try:
-            PriorityService().validate_priority(update.priority)
+            configured_priorities.validate_priority(update.priority)
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
 
-    updated_item = update_mock_action_item(
-        board_id,
-        item_id,
-        target=update.target,
-        priority=update.priority,
-    )
-
-    if updated_item is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Action item not found.",
-        )
-
-    return updated_item
+    with WORKSPACE_LOCK:
+        item = next((item for item in get_mock_action_items(board_id) if item.id == item_id), None)
+        if item is None:
+            raise HTTPException(status_code=404, detail="Action item not found.")
+        if update.status is not None:
+            try:
+                status_service.change_status(board_id, item_id, update.status, user_id)
+            except StatusValidationError as error:
+                raise HTTPException(status_code=422, detail=error.message) from error
+            except ItemNotFoundError as error:
+                raise HTTPException(status_code=404, detail="Action item not found.") from error
+        for field in update.model_fields_set - {"status"}:
+            setattr(item, field, getattr(update, field))
+        return item
 
 
 def check_access(x_mock_role: str = Header(default="viewer")):

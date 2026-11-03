@@ -336,7 +336,7 @@ def test_quick_entry_creates_action_item(client):
     assert item["title"] == "Review construction schedule"
     assert item["section"] == "General"
     assert item["priority"] == "Medium"
-    assert item["status"] == "Not Started"
+    assert item["status"] == "Open"
     assert item["owners"] == []
     assert item["target"] == ""
     assert item["hardDate"] is None
