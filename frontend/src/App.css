@@ -855,3 +855,18 @@ summary:focus-visible {
 .board-workspace > h2 { font-weight: 500; margin-bottom: 0; }
 .priority-tools { margin-top: 28px; }
 @media (max-width: 800px) { .flint-brand span { font-size: 11px; } }
+
+/* Give project-creation buttons visible mouse feedback. */
+.creation-page button:not(:disabled) {
+  cursor: pointer;
+}
+.creation-page button:hover:not(:disabled) {
+  background-color: #e6f0f5;
+  border-color: #006098;
+}
+.creation-page button[type='submit']:hover:not(:disabled) {
+  background-color: #005078;
+}
+.creation-page button:disabled {
+  cursor: default;
+}
