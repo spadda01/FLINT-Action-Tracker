@@ -1,0 +1,369 @@
+{
+  "total": 46,
+  "passed": 35,
+  "failed": 11,
+  "checks": [
+    {
+      "jira": "AT-29",
+      "check": "Project suggestions use mock adapter IDs",
+      "result": "PASS",
+      "actual": {
+        "id": "P001",
+        "name": "Sample Project",
+        "teamMembers": [
+          {
+            "id": "E001",
+            "name": "John Smith"
+          },
+          {
+            "id": "E002",
+            "name": "Sarah Lee"
+          }
+        ],
+        "egnyteFolder": "/Projects/SampleProject"
+      }
+    },
+    {
+      "jira": "AT-30",
+      "check": "Create and reopen project board with confirmed links",
+      "result": "PASS",
+      "actual": 201
+    },
+    {
+      "jira": "AT-31",
+      "check": "Create project board without a project link",
+      "result": "PASS",
+      "actual": {
+        "id": "B002",
+        "name": "Acceptance project",
+        "type": "Project",
+        "projectId": null,
+        "members": [
+          {
+            "id": "E001",
+            "type": "user",
+            "name": "John Smith"
+          }
+        ],
+        "egnyteFolderUrl": "https://example.test/project",
+        "createdAt": "2026-11-03T12:43:59.160557+00:00",
+        "openItemCount": 0
+      }
+    },
+    {
+      "jira": "AT-30, AT-31",
+      "check": "Existing board can edit links or link a project later",
+      "result": "FAIL",
+      "actual": "No board PATCH/PUT endpoint exists"
+    },
+    {
+      "jira": "AT-50, AT-104, AT-105",
+      "check": "Shared section add/rename/reorder persistence API",
+      "result": "FAIL",
+      "actual": []
+    },
+    {
+      "jira": "AT-36",
+      "check": "Team board reopens without project and with members/folder",
+      "result": "PASS",
+      "actual": {
+        "id": "B003",
+        "name": "Acceptance team",
+        "type": "Team",
+        "projectId": null,
+        "members": [
+          {
+            "id": "E001",
+            "type": "user",
+            "name": "John Smith"
+          }
+        ],
+        "egnyteFolderUrl": "https://example.test/project",
+        "createdAt": "2026-11-03T12:43:59.227459+00:00",
+        "openItemCount": 0
+      }
+    },
+    {
+      "jira": "AT-35",
+      "check": "Mock Entra group grants access to its member",
+      "result": "PASS",
+      "actual": [
+        {
+          "id": "G002",
+          "type": "group",
+          "name": "Preconstruction"
+        }
+      ]
+    },
+    {
+      "jira": "AT-35",
+      "check": "Duplicate members rejected by server",
+      "result": "PASS",
+      "actual": 422
+    },
+    {
+      "jira": "AT-28, AT-34",
+      "check": "Invalid required folder rejected by server",
+      "result": "PASS",
+      "actual": 422
+    },
+    {
+      "jira": "AT-9, AT-36",
+      "check": "Project board reads its newly created item",
+      "result": "PASS",
+      "actual": {
+        "id": 1,
+        "section": "General",
+        "priority": "Medium",
+        "title": "Project action",
+        "owners": [],
+        "target": "",
+        "hardDate": null,
+        "status": "Not Started",
+        "attention": false
+      }
+    },
+    {
+      "jira": "AT-54, AT-117",
+      "check": "Project quick-add starts Open",
+      "result": "FAIL",
+      "actual": "Not Started"
+    },
+    {
+      "jira": "AT-54",
+      "check": "Project quick-add starts with Medium priority",
+      "result": "PASS",
+      "actual": "Medium"
+    },
+    {
+      "jira": "AT-66, AT-152",
+      "check": "Project exact multiline text persists",
+      "result": "PASS",
+      "actual": {
+        "type": "text",
+        "value": "  Before job walk\nNext OAC?  "
+      }
+    },
+    {
+      "jira": "AT-153",
+      "check": "Project date type persists",
+      "result": "PASS",
+      "actual": {
+        "type": "date",
+        "value": "2026-11-05"
+      }
+    },
+    {
+      "jira": "AT-154",
+      "check": "Project invalid date rejected",
+      "result": "PASS",
+      "actual": 422
+    },
+    {
+      "jira": "AT-44",
+      "check": "Project target edits record field change history",
+      "result": "FAIL",
+      "actual": []
+    },
+    {
+      "jira": "AT-44",
+      "check": "Project priority edits record field change history",
+      "result": "FAIL",
+      "actual": []
+    },
+    {
+      "jira": "AT-68, AT-158",
+      "check": "Project accepts Open status",
+      "result": "PASS",
+      "actual": 200
+    },
+    {
+      "jira": "AT-68, AT-158",
+      "check": "Project accepts Not Started status",
+      "result": "PASS",
+      "actual": 200
+    },
+    {
+      "jira": "AT-68, AT-158",
+      "check": "Project accepts In Progress status",
+      "result": "PASS",
+      "actual": 200
+    },
+    {
+      "jira": "AT-68, AT-158",
+      "check": "Project accepts Scheduled status",
+      "result": "PASS",
+      "actual": 200
+    },
+    {
+      "jira": "AT-68, AT-158",
+      "check": "Project accepts Outstanding status",
+      "result": "PASS",
+      "actual": 200
+    },
+    {
+      "jira": "AT-68, AT-158",
+      "check": "Project accepts Complete status",
+      "result": "PASS",
+      "actual": 200
+    },
+    {
+      "jira": "AT-159",
+      "check": "Project status history records actor/time/old/new",
+      "result": "PASS",
+      "actual": 6
+    },
+    {
+      "jira": "AT-165",
+      "check": "Project priority endpoint updates shared item",
+      "result": "PASS",
+      "actual": 200
+    },
+    {
+      "jira": "AT-39, AT-40",
+      "check": "Project dashboard open-item count reflects added open item",
+      "result": "FAIL",
+      "actual": 0
+    },
+    {
+      "jira": "AT-40, AT-44",
+      "check": "Project nonmember cannot read or edit",
+      "result": "PASS",
+      "actual": "404 for read and edit"
+    },
+    {
+      "jira": "AT-9, AT-36",
+      "check": "Team board reads its newly created item",
+      "result": "PASS",
+      "actual": {
+        "id": 1,
+        "section": "General",
+        "priority": "Medium",
+        "title": "Team action",
+        "owners": [],
+        "target": "",
+        "hardDate": null,
+        "status": "Not Started",
+        "attention": false
+      }
+    },
+    {
+      "jira": "AT-54, AT-117",
+      "check": "Team quick-add starts Open",
+      "result": "FAIL",
+      "actual": "Not Started"
+    },
+    {
+      "jira": "AT-54",
+      "check": "Team quick-add starts with Medium priority",
+      "result": "PASS",
+      "actual": "Medium"
+    },
+    {
+      "jira": "AT-66, AT-152",
+      "check": "Team exact multiline text persists",
+      "result": "PASS",
+      "actual": {
+        "type": "text",
+        "value": "  Before job walk\nNext OAC?  "
+      }
+    },
+    {
+      "jira": "AT-153",
+      "check": "Team date type persists",
+      "result": "PASS",
+      "actual": {
+        "type": "date",
+        "value": "2026-11-05"
+      }
+    },
+    {
+      "jira": "AT-154",
+      "check": "Team invalid date rejected",
+      "result": "PASS",
+      "actual": 422
+    },
+    {
+      "jira": "AT-44",
+      "check": "Team target edits record field change history",
+      "result": "FAIL",
+      "actual": []
+    },
+    {
+      "jira": "AT-44",
+      "check": "Team priority edits record field change history",
+      "result": "FAIL",
+      "actual": []
+    },
+    {
+      "jira": "AT-68, AT-158",
+      "check": "Team accepts Open status",
+      "result": "PASS",
+      "actual": 200
+    },
+    {
+      "jira": "AT-68, AT-158",
+      "check": "Team accepts Not Started status",
+      "result": "PASS",
+      "actual": 200
+    },
+    {
+      "jira": "AT-68, AT-158",
+      "check": "Team accepts In Progress status",
+      "result": "PASS",
+      "actual": 200
+    },
+    {
+      "jira": "AT-68, AT-158",
+      "check": "Team accepts Scheduled status",
+      "result": "PASS",
+      "actual": 200
+    },
+    {
+      "jira": "AT-68, AT-158",
+      "check": "Team accepts Outstanding status",
+      "result": "PASS",
+      "actual": 200
+    },
+    {
+      "jira": "AT-68, AT-158",
+      "check": "Team accepts Complete status",
+      "result": "PASS",
+      "actual": 200
+    },
+    {
+      "jira": "AT-159",
+      "check": "Team status history records actor/time/old/new",
+      "result": "PASS",
+      "actual": 6
+    },
+    {
+      "jira": "AT-165",
+      "check": "Team priority endpoint updates shared item",
+      "result": "PASS",
+      "actual": 200
+    },
+    {
+      "jira": "AT-39, AT-40",
+      "check": "Team dashboard open-item count reflects added open item",
+      "result": "FAIL",
+      "actual": 0
+    },
+    {
+      "jira": "AT-40, AT-44",
+      "check": "Team nonmember cannot read or edit",
+      "result": "PASS",
+      "actual": "404 for read and edit"
+    },
+    {
+      "jira": "AT-44",
+      "check": "Rejected combined edit leaves item unchanged",
+      "result": "FAIL",
+      "actual": {
+        "http": 422,
+        "before": "Open",
+        "after": "Complete"
+      }
+    }
+  ]
+}
