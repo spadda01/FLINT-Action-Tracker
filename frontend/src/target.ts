@@ -38,12 +38,19 @@ export function targetFromInput(
   return { type, value };
 }
 
-export function displayTarget(target: Target): TargetDisplay {
+export function displayTarget(target: Target | string): TargetDisplay {
+  // Support existing backend targets stored as plain strings.
+  if (typeof target === "string") {
+    return { type: "text", value: target };
+  }
+
   switch (target.type) {
     case "text":
       return { type: "text", value: target.value };
+
     case "date":
       return { type: "date", value: target.value };
+
     case "datetime":
       return {
         type: "date",
