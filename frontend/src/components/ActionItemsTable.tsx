@@ -95,6 +95,7 @@ function ActionItemsTable({ boardId }: Props) {
   >({})
   const [savingItemIds, setSavingItemIds] = useState<string[]>([])
   const [isSorted, setIsSorted] = useState(false)
+  const [attentionOnly, setAttentionOnly] = useState(false)
 
   // Keep priority changes synchronized with the priority panel.
   useEffect(() => {
@@ -163,9 +164,14 @@ function ActionItemsTable({ boardId }: Props) {
   // Date targets appear before text targets.
   // Original order is preserved when targets compare equally.
   const visibleItems = useMemo(() => {
-    if (!isSorted) return items
+    // Filter first, then apply the existing target sorting.
+    const filteredItems = attentionOnly
+      ? items.filter((item) => item.attention)
+      : items
 
-    return items
+    if (!isSorted) return filteredItems
+
+    return filteredItems
       .map((item, index) => ({ item, index }))
       .sort((left, right) => {
         const leftTarget =
@@ -191,7 +197,7 @@ function ActionItemsTable({ boardId }: Props) {
         )
       })
       .map(({ item }) => item)
-  }, [drafts, isSorted, items])
+  }, [attentionOnly, drafts, isSorted, items])
 
   // Group items by section while preserving their current order.
   const groupedItems = useMemo(
@@ -391,9 +397,9 @@ function ActionItemsTable({ boardId }: Props) {
         previousItems.map((item) =>
           item.id === itemId
             ? {
-                ...item,
-                status: result.item.status,
-              }
+              ...item,
+              status: result.item.status,
+            }
             : item,
         ),
       )
@@ -508,6 +514,14 @@ function ActionItemsTable({ boardId }: Props) {
               : 'Sort by target'}
           </button>
 
+          <button
+            type="button"
+            aria-pressed={attentionOnly}
+            onClick={() => setAttentionOnly((current) => !current)}
+          >
+            {attentionOnly ? 'Show all items' : 'Needs attention only'}
+          </button>
+
           <div
             style={{
               overflowX: 'auto',
@@ -569,7 +583,7 @@ function ActionItemsTable({ boardId }: Props) {
                               <td>
                                 {editingCell?.itemId ===
                                   item.id &&
-                                editingCell.field ===
+                                  editingCell.field ===
                                   'priority' ? (
                                   <select
                                     defaultValue={item.priority}
@@ -675,7 +689,7 @@ function ActionItemsTable({ boardId }: Props) {
                                       type,
                                       value:
                                         type === 'date' &&
-                                        draft.type !== 'date'
+                                          draft.type !== 'date'
                                           ? ''
                                           : draft.value,
                                     })
@@ -754,17 +768,17 @@ function ActionItemsTable({ boardId }: Props) {
 
                                 {targetStatus?.kind ===
                                   'saved' && (
-                                  <p role="status">
-                                    {targetStatus.message}
-                                  </p>
-                                )}
+                                    <p role="status">
+                                      {targetStatus.message}
+                                    </p>
+                                  )}
 
                                 {targetStatus?.kind ===
                                   'error' && (
-                                  <p role="alert">
-                                    {targetStatus.message}
-                                  </p>
-                                )}
+                                    <p role="alert">
+                                      {targetStatus.message}
+                                    </p>
+                                  )}
                               </td>
 
                               {/* Hard Date */}
