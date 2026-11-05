@@ -1,0 +1,98 @@
+{
+  "total": 13,
+  "passed": 4,
+  "failed": 9,
+  "checks": [
+    {
+      "jira": "AT-38, AT-41",
+      "check": "Dashboard case-insensitive search and clearing",
+      "result": "PASS",
+      "actual": "OFFICE matched only office board; clear restored project"
+    },
+    {
+      "jira": "AT-28, AT-29",
+      "check": "Project name and owner suggestions default from selected project",
+      "result": "PASS",
+      "actual": "P001 name and E001 selected"
+    },
+    {
+      "jira": "AT-27, AT-28",
+      "check": "Selected project supplies an editable folder link",
+      "result": "FAIL",
+      "actual": "Blank: mock supplies a non-URL path, form discards it"
+    },
+    {
+      "jira": "AT-29",
+      "check": "Changing project replaces previous team suggestions",
+      "result": "PASS",
+      "actual": "P002 selects E003 and removes P001 team"
+    },
+    {
+      "jira": "AT-50, AT-104",
+      "check": "Section add/rename/reorder controls exist",
+      "result": "FAIL",
+      "actual": "No matching controls"
+    },
+    {
+      "jira": "AT-116",
+      "check": "Quick entry available within each section",
+      "result": "FAIL",
+      "actual": "Two section headings, one global quick-entry row"
+    },
+    {
+      "jira": "AT-116",
+      "check": "Quick-add keeps input ready for next keyboard entry",
+      "result": "FAIL",
+      "actual": "Active element: BODY"
+    },
+    {
+      "jira": "AT-54, AT-117",
+      "check": "Browser-created item begins with Open status",
+      "result": "FAIL",
+      "actual": "Medium\tKeyboard audit action\t\n\t\nTarget type for Keyboard audit action\nText\nDate\nTarget for Keyboard audit action\nSave target\t—\t\nNot Started\n▾\n\t—"
+    },
+    {
+      "jira": "AT-160, AT-44",
+      "check": "Failed status save provides chooser retry and no success announcement",
+      "result": "FAIL",
+      "actual": {
+        "retryButtons": 0,
+        "falseSuccessAnnouncement": true,
+        "pill": "In Progress\n▾"
+      }
+    },
+    {
+      "jira": "AT-44, AT-166",
+      "check": "Failed priority save keeps draft selection and an explicit retry",
+      "result": "FAIL",
+      "actual": "Editor closes; old High priority remains; no explicit retry control"
+    },
+    {
+      "jira": "AT-43, AT-50",
+      "check": "Items without section display a default heading",
+      "result": "FAIL",
+      "actual": {
+        "heading": ""
+      }
+    },
+    {
+      "jira": "AT-164, AT-165",
+      "check": "Inline priority editor uses configured API levels",
+      "result": "FAIL",
+      "actual": [
+        "High",
+        "Medium",
+        "Low"
+      ]
+    },
+    {
+      "jira": "AT-8",
+      "check": "Mobile page fits viewport with internal table scrolling",
+      "result": "PASS",
+      "actual": {
+        "page": 390,
+        "viewport": 390
+      }
+    }
+  ]
+}

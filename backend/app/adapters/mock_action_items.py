@@ -1,4 +1,5 @@
 from app.schemas.action_item import ActionItem, ActionItemCreate
+from app.schemas.action_items import TargetValue
 
 # temporary action items for the development until real project data is available
 MOCK_ACTION_ITEMS = {
@@ -52,11 +53,11 @@ def create_mock_action_item(
         section=new_item.section,
         priority=new_item.priority,
         title=new_item.title,
-        owners=[],
+        owners=new_item.owners,
         target=new_item.target,
-        hardDate=None,
+        hardDate=new_item.hardDate,
         status=new_item.status,
-        attention=False,
+        attention=new_item.attention,
     )
 
     items.append(created_item)
@@ -66,7 +67,7 @@ def create_mock_action_item(
 def update_mock_action_item(
     board_id: str,
     item_id: int,
-    target: str | None = None,
+    target: str | TargetValue | None = None,
     priority: str | None = None,
     status: str | None = None,
 ) -> ActionItem | None:

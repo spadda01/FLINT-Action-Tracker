@@ -3,7 +3,15 @@ import { loadMemberOptions, type MemberOption } from '../services/memberService'
 import { useSaveTeamBoard } from '../services/useSaveTeamBoard'
 import type { BoardMemberSelection } from '../types/board'
 
-function CreateTeamBoard() {
+function CreateTeamBoard({
+  onCreated,
+  onCancel,
+  hideHeading = false,
+}: {
+  onCreated?: () => void
+  onCancel?: () => void
+  hideHeading?: boolean
+}) {
   const [members, setMembers] = useState<MemberOption[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -28,11 +36,14 @@ function CreateTeamBoard() {
     }
 
     void loadMembers()
-    return () => { active = false }
+    return () => {
+      active = false
+    }
   }, [])
 
   async function handleCreateBoard(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (status === 'saving') return
 
     // Convert dropdown values into the IDs and types expected by FastAPI.
     const boardMembers: BoardMemberSelection[] = selectedMembers
@@ -46,17 +57,18 @@ function CreateTeamBoard() {
         }
       })
 
-    await save({
+    const result = await save({
       name: boardName.trim(),
       members: boardMembers,
       egnyteFolderUrl: egnyteLink.trim(),
     })
+    if (result.ok) onCreated?.()
   }
 
   return (
     <section>
-      <h1>Create Team Board</h1>
-      <form onSubmit={handleCreateBoard}>
+      {!hideHeading && <h2>Create Team Board</h2>}
+      <form className="max-form max-team-form" onSubmit={handleCreateBoard}>
         <div>
           <label htmlFor="team-board-name">Board Name*</label>
           <input
@@ -70,6 +82,70 @@ function CreateTeamBoard() {
           {fieldErrors.name && <p role="alert">{fieldErrors.name}</p>}
         </div>
 
+        <div>
+          <label>Team Members*</label>
+
+          {selectedMembers.map((selected, index) => (
+            <div key={index}>
+              <select
+                aria-label={`Team member ${index + 1}`}
+                value={selected}
+                onChange={(event) => {
+                  setSelectedMembers((current) =>
+                    current.map((value, i) =>
+                      i === index ? event.target.value : value,
+                    ),
+                  )
+                }}
+                disabled={loading || Boolean(loadError)}
+                required
+              >
+                <option value="">Select an employee or group</option>
+
+                {members
+                  .filter(
+                    (member) =>
+                      `${member.type}:${member.id}` === selected ||
+                      !selectedMembers.includes(`${member.type}:${member.id}`),
+                  )
+                  .map((member) => (
+                    <option
+                      key={`${member.type}-${member.id}`}
+                      value={`${member.type}:${member.id}`}
+                    >
+                      {member.name} (
+                      {member.type === 'user' ? 'Employee' : 'Group'})
+                    </option>
+                  ))}
+              </select>
+
+              {selectedMembers.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelectedMembers((current) =>
+                      current.filter((_, i) => i !== index),
+                    )
+                  }
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          ))}
+
+          <button
+            type="button"
+            onClick={() => setSelectedMembers((current) => [...current, ''])}
+            disabled={
+              loading ||
+              Boolean(loadError) ||
+              selectedMembers.length >= members.length
+            }
+          >
+            Add Member
+          </button>
+        </div>
         <div>
           <label htmlFor="team-board-egnyte">Egnyte Folder Link*</label>
           <input
@@ -85,87 +161,35 @@ function CreateTeamBoard() {
           )}
         </div>
 
-        <div>
-          <label>Team Members*</label>
-
-          {selectedMembers.map((selected, index) => (
-            <div key={index}>
-              <select
-                aria-label={`Team member ${index + 1}`}
-                value={selected}
-                onChange={(event) => {
-                  setSelectedMembers((current) =>
-                    current.map((value, i) =>
-                      i === index ? event.target.value : value
-                    )
-                  )
-                }}
-                disabled={loading || Boolean(loadError)}
-                required
-              >
-                <option value="">Select an employee or group</option>
-
-                {members
-                  .filter(
-                    (member) =>
-                      `${member.type}:${member.id}` === selected ||
-                      !selectedMembers.includes(`${member.type}:${member.id}`)
-                  )
-                  .map((member) => (
-                    <option
-                      key={`${member.type}-${member.id}`}
-                      value={`${member.type}:${member.id}`}
-                    >
-                      {member.name} ({member.type === 'user' ? 'Employee' : 'Group'})
-                    </option>
-                  ))}
-              </select>
-
-              {selectedMembers.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSelectedMembers((current) =>
-                      current.filter((_, i) => i !== index)
-                    )
-                  }
-                >
-                  Remove
-                </button>
-              )}
-            </div>
-          ))}
-
-          <button
-            type="button"
-            onClick={() =>
-              setSelectedMembers((current) => [...current, ''])
-            }
-            disabled={loading || Boolean(loadError) || selectedMembers.length >= members.length}
-          >
-            Add Member
-          </button>
-        </div>
-        {fieldErrors.members && (
-          <p role="alert">{fieldErrors.members}</p>
-        )}
+        {fieldErrors.members && <p role="alert">{fieldErrors.members}</p>}
         {loading && <p role="status">Loading members...</p>}
         {loadError && <p role="alert">{loadError}</p>}
         {!loading && !loadError && (
           <p>{members.length} employees and groups available.</p>
         )}
-        <button type="submit" disabled={status === 'saving'}>
-          {status === 'saving' ? 'Creating...' : 'Create Team Board'}
-        </button>
+        <div className="max-dialog-actions">
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={status === 'saving'}
+            >
+              Cancel
+            </button>
+          )}
+          <button
+            type="submit"
+            disabled={status === 'saving' || loading || Boolean(loadError)}
+          >
+            {status === 'saving' ? 'Creating...' : 'Create Team Board'}
+          </button>
+        </div>
 
         {message && (
-          <p role={status === 'failed' ? 'alert' : 'status'}>
-            {message}
-          </p>
+          <p role={status === 'failed' ? 'alert' : 'status'}>{message}</p>
         )}
       </form>
-    </section >
-
+    </section>
   )
 }
 

@@ -96,6 +96,7 @@ function ActionItemsTable({ boardId }: Props) {
   const [savingItemIds, setSavingItemIds] = useState<string[]>([])
   const [isSorted, setIsSorted] = useState(false)
   const [attentionOnly, setAttentionOnly] = useState(false)
+  const [searchText, setSearchText] = useState('')
 
   // Keep priority changes synchronized with the priority panel.
   useEffect(() => {
@@ -105,9 +106,7 @@ function ActionItemsTable({ boardId }: Props) {
 
         setItems((previousItems) =>
           previousItems.map((item) =>
-            item.id === itemId
-              ? { ...item, priority }
-              : item,
+            item.id === itemId ? { ...item, priority } : item,
           ),
         )
       },
@@ -165,9 +164,17 @@ function ActionItemsTable({ boardId }: Props) {
   // Original order is preserved when targets compare equally.
   const visibleItems = useMemo(() => {
     // Filter first, then apply the existing target sorting.
-    const filteredItems = attentionOnly
-      ? items.filter((item) => item.attention)
-      : items
+    const query = searchText.trim().toLowerCase()
+    const filteredItems = items.filter(
+      (item) =>
+        (!attentionOnly || item.attention) &&
+        (!query ||
+          [
+            item.title,
+            item.section,
+            ...item.owners.map((owner) => owner.name),
+          ].some((value) => value.toLowerCase().includes(query))),
+    )
 
     if (!isSorted) return filteredItems
 
@@ -175,12 +182,10 @@ function ActionItemsTable({ boardId }: Props) {
       .map((item, index) => ({ item, index }))
       .sort((left, right) => {
         const leftTarget =
-          drafts[String(left.item.id)] ??
-          displayTarget(left.item.target)
+          drafts[String(left.item.id)] ?? displayTarget(left.item.target)
 
         const rightTarget =
-          drafts[String(right.item.id)] ??
-          displayTarget(right.item.target)
+          drafts[String(right.item.id)] ?? displayTarget(right.item.target)
 
         const [leftGroup, leftValue] = dateFirstSorting(
           targetForSort(leftTarget),
@@ -197,38 +202,29 @@ function ActionItemsTable({ boardId }: Props) {
         )
       })
       .map(({ item }) => item)
-  }, [attentionOnly, drafts, isSorted, items])
+  }, [attentionOnly, drafts, isSorted, items, searchText])
 
   // Group items by section while preserving their current order.
   const groupedItems = useMemo(
     () =>
-      visibleItems.reduce<Record<string, BoardActionItem[]>>(
-        (groups, item) => {
-          if (!groups[item.section]) {
-            groups[item.section] = []
-          }
+      visibleItems.reduce<Record<string, BoardActionItem[]>>((groups, item) => {
+        if (!groups[item.section]) {
+          groups[item.section] = []
+        }
 
-          groups[item.section].push(item)
-          return groups
-        },
-        {},
-      ),
+        groups[item.section].push(item)
+        return groups
+      }, {}),
     [visibleItems],
   )
 
   // Start editing an existing table field.
-  function startEditing(
-    itemId: BoardActionItem['id'],
-    field: EditableField,
-  ) {
+  function startEditing(itemId: BoardActionItem['id'], field: EditableField) {
     setEditingCell({ itemId, field })
   }
 
   // Update an unsaved target draft.
-  function updateDraft(
-    itemId: BoardActionItem['id'],
-    draft: TargetDisplay,
-  ) {
+  function updateDraft(itemId: BoardActionItem['id'], draft: TargetDisplay) {
     const key = String(itemId)
 
     setDrafts((current) => ({
@@ -246,8 +242,7 @@ function ActionItemsTable({ boardId }: Props) {
   // Validate and save a target through the shared action-item service.
   async function saveTarget(item: BoardActionItem) {
     const key = String(item.id)
-    const draft =
-      drafts[key] ?? displayTarget(item.target)
+    const draft = drafts[key] ?? displayTarget(item.target)
 
     let target: Target
 
@@ -272,9 +267,7 @@ function ActionItemsTable({ boardId }: Props) {
     }
 
     setSavingItemIds((current) =>
-      current.includes(key)
-        ? current
-        : [...current, key],
+      current.includes(key) ? current : [...current, key],
     )
 
     setTargetStatuses((current) => {
@@ -284,27 +277,19 @@ function ActionItemsTable({ boardId }: Props) {
     })
 
     try {
-      const savedItem = await saveActionItemTarget(
-        boardId,
-        item.id,
-        target,
-      )
+      const savedItem = await saveActionItemTarget(boardId, item.id, target)
 
       const updatedItem = savedItem as BoardActionItem
 
       setItems((current) =>
         current.map((currentItem) =>
-          currentItem.id === updatedItem.id
-            ? updatedItem
-            : currentItem,
+          currentItem.id === updatedItem.id ? updatedItem : currentItem,
         ),
       )
 
       setDrafts((current) => ({
         ...current,
-        [String(updatedItem.id)]: displayTarget(
-          updatedItem.target,
-        ),
+        [String(updatedItem.id)]: displayTarget(updatedItem.target),
       }))
 
       setTargetStatuses((current) => ({
@@ -326,9 +311,7 @@ function ActionItemsTable({ boardId }: Props) {
         },
       }))
     } finally {
-      setSavingItemIds((current) =>
-        current.filter((itemId) => itemId !== key),
-      )
+      setSavingItemIds((current) => current.filter((itemId) => itemId !== key))
     }
   }
 
@@ -357,15 +340,10 @@ function ActionItemsTable({ boardId }: Props) {
         throw new Error('Failed to save priority')
       }
 
-      const updatedItem =
-        (await response.json()) as BoardActionItem
+      const updatedItem = (await response.json()) as BoardActionItem
 
       setItems((previousItems) =>
-        previousItems.map((item) =>
-          item.id === itemId
-            ? updatedItem
-            : item,
-        ),
+        previousItems.map((item) => (item.id === itemId ? updatedItem : item)),
       )
 
       announcePriorityUpdate({
@@ -375,39 +353,28 @@ function ActionItemsTable({ boardId }: Props) {
       })
     } catch (error) {
       console.error('Error saving priority:', error)
-      setSaveError(
-        'Unable to save your changes. Please try again.',
-      )
+      setSaveError('Unable to save your changes. Please try again.')
     }
   }
 
   // Save status through the status service so history is recorded.
-  async function saveStatus(
-    itemId: BoardActionItem['id'],
-    newStatus: string,
-  ) {
+  async function saveStatus(itemId: BoardActionItem['id'], newStatus: string) {
     try {
-      const result = await changeItemStatus(
-        boardId,
-        itemId,
-        newStatus,
-      )
+      const result = await changeItemStatus(boardId, itemId, newStatus)
 
       setItems((previousItems) =>
         previousItems.map((item) =>
           item.id === itemId
             ? {
-              ...item,
-              status: result.item.status,
-            }
+                ...item,
+                status: result.item.status,
+              }
             : item,
         ),
       )
     } catch (error) {
       console.error('Error saving status:', error)
-      setSaveError(
-        'Unable to save the status change. Please try again.',
-      )
+      setSaveError('Unable to save the status change. Please try again.')
     }
   }
 
@@ -436,19 +403,13 @@ function ActionItemsTable({ boardId }: Props) {
         throw new Error('Failed to create action item')
       }
 
-      const createdItem =
-        (await response.json()) as BoardActionItem
+      const createdItem = (await response.json()) as BoardActionItem
 
-      setItems((previousItems) => [
-        ...previousItems,
-        createdItem,
-      ])
+      setItems((previousItems) => [...previousItems, createdItem])
 
       setDrafts((current) => ({
         ...current,
-        [String(createdItem.id)]: displayTarget(
-          createdItem.target,
-        ),
+        [String(createdItem.id)]: displayTarget(createdItem.target),
       }))
 
       // Notify the priority panel that a new item is available.
@@ -457,9 +418,7 @@ function ActionItemsTable({ boardId }: Props) {
       setNewItemTitle('')
     } catch (error) {
       console.error('Error creating action item:', error)
-      setCreateError(
-        'Unable to create action item. Please try again.',
-      )
+      setCreateError('Unable to create action item. Please try again.')
     } finally {
       setIsCreating(false)
     }
@@ -492,35 +451,54 @@ function ActionItemsTable({ boardId }: Props) {
           <button
             type="button"
             className="boards-retry"
-            onClick={() =>
-              setLoadAttempt((attempt) => attempt + 1)
-            }
+            onClick={() => setLoadAttempt((attempt) => attempt + 1)}
           >
             Retry loading action items
           </button>
         </div>
       ) : (
         <>
-          <button
-            type="button"
-            className="target-sort"
-            aria-pressed={isSorted}
-            onClick={() =>
-              setIsSorted((sorted) => !sorted)
-            }
-          >
-            {isSorted
-              ? 'Clear target sort'
-              : 'Sort by target'}
-          </button>
+          <div className="action-toolbar">
+            <label className="action-search">
+              <span className="visually-hidden">Search action items</span>
+              <input
+                type="search"
+                placeholder="Search actions or owners"
+                value={searchText}
+                onChange={(event) => setSearchText(event.target.value)}
+              />
+            </label>
+            <button
+              type="button"
+              className="target-sort"
+              aria-pressed={isSorted}
+              onClick={() => setIsSorted((sorted) => !sorted)}
+            >
+              {isSorted ? 'Clear target sort' : 'Sort by target'}
+            </button>
 
-          <button
-            type="button"
-            aria-pressed={attentionOnly}
-            onClick={() => setAttentionOnly((current) => !current)}
-          >
-            {attentionOnly ? 'Show all items' : 'Needs attention only'}
-          </button>
+            <button
+              type="button"
+              aria-pressed={attentionOnly}
+              onClick={() => setAttentionOnly((current) => !current)}
+            >
+              {attentionOnly ? 'Show all items' : 'Needs attention only'}
+            </button>
+
+            <button
+              type="button"
+              className="add-action-button"
+              onClick={() => {
+                document
+                  .querySelector<HTMLInputElement>(
+                    '[aria-label="New action item title"]',
+                  )
+                  ?.focus()
+              }}
+            >
+              + Add action item
+            </button>
+          </div>
 
           <div
             style={{
@@ -550,8 +528,12 @@ function ActionItemsTable({ boardId }: Props) {
               <tbody>
                 {items.length === 0 ? (
                   <tr>
+                    <td colSpan={7}>No action items found.</td>
+                  </tr>
+                ) : visibleItems.length === 0 ? (
+                  <tr>
                     <td colSpan={7}>
-                      No action items found.
+                      No action items match your search or filter.
                     </td>
                   </tr>
                 ) : (
@@ -559,10 +541,7 @@ function ActionItemsTable({ boardId }: Props) {
                     ([section, sectionItems]) => (
                       <Fragment key={section}>
                         <tr className="section-header">
-                          <th
-                            colSpan={7}
-                            scope="rowgroup"
-                          >
+                          <th colSpan={7} scope="rowgroup">
                             {section}
                           </th>
                         </tr>
@@ -570,21 +549,16 @@ function ActionItemsTable({ boardId }: Props) {
                         {sectionItems.map((item) => {
                           const key = String(item.id)
                           const draft =
-                            drafts[key] ??
-                            displayTarget(item.target)
-                          const targetStatus =
-                            targetStatuses[key]
-                          const isSaving =
-                            savingItemIds.includes(key)
+                            drafts[key] ?? displayTarget(item.target)
+                          const targetStatus = targetStatuses[key]
+                          const isSaving = savingItemIds.includes(key)
 
                           return (
                             <tr key={item.id}>
                               {/* Priority */}
                               <td>
-                                {editingCell?.itemId ===
-                                  item.id &&
-                                  editingCell.field ===
-                                  'priority' ? (
+                                {editingCell?.itemId === item.id &&
+                                editingCell.field === 'priority' ? (
                                   <select
                                     defaultValue={item.priority}
                                     aria-label={`Edit priority for ${item.title}`}
@@ -597,33 +571,22 @@ function ActionItemsTable({ boardId }: Props) {
                                       setEditingCell(null)
                                     }}
                                     onKeyDown={(event) => {
-                                      if (
-                                        event.key === 'Escape'
-                                      ) {
+                                      if (event.key === 'Escape') {
                                         event.preventDefault()
                                         setEditingCell(null)
                                       }
                                     }}
                                   >
-                                    <option value="High">
-                                      High
-                                    </option>
-                                    <option value="Medium">
-                                      Medium
-                                    </option>
-                                    <option value="Low">
-                                      Low
-                                    </option>
+                                    <option value="High">High</option>
+                                    <option value="Medium">Medium</option>
+                                    <option value="Low">Low</option>
                                   </select>
                                 ) : (
                                   <button
                                     type="button"
                                     className={`priority priority-${item.priority.toLowerCase()}`}
                                     onClick={() =>
-                                      startEditing(
-                                        item.id,
-                                        'priority',
-                                      )
+                                      startEditing(item.id, 'priority')
                                     }
                                     aria-label={`Edit priority for ${item.title}`}
                                   >
@@ -642,22 +605,20 @@ function ActionItemsTable({ boardId }: Props) {
                               {/* Owners */}
                               <td>
                                 <div className="action-owners">
-                                  {item.owners.map(
-                                    (owner, index) => (
-                                      <span
-                                        className="action-owner"
-                                        key={`${owner.name}-${index}`}
-                                      >
-                                        {owner.name}
+                                  {item.owners.map((owner, index) => (
+                                    <span
+                                      className="action-owner"
+                                      key={`${owner.name}-${index}`}
+                                    >
+                                      {owner.name}
 
-                                        {owner.isExternal && (
-                                          <span className="external-tag">
-                                            External
-                                          </span>
-                                        )}
-                                      </span>
-                                    ),
-                                  )}
+                                      {owner.isExternal && (
+                                        <span className="external-tag">
+                                          External
+                                        </span>
+                                      )}
+                                    </span>
+                                  ))}
                                 </div>
                               </td>
 
@@ -675,32 +636,23 @@ function ActionItemsTable({ boardId }: Props) {
                                   value={draft.type}
                                   disabled={isSaving}
                                   onChange={(event) => {
-                                    const type =
-                                      event.currentTarget.value
+                                    const type = event.currentTarget.value
 
-                                    if (
-                                      type !== 'text' &&
-                                      type !== 'date'
-                                    ) {
+                                    if (type !== 'text' && type !== 'date') {
                                       return
                                     }
 
                                     updateDraft(item.id, {
                                       type,
                                       value:
-                                        type === 'date' &&
-                                          draft.type !== 'date'
+                                        type === 'date' && draft.type !== 'date'
                                           ? ''
                                           : draft.value,
                                     })
                                   }}
                                 >
-                                  <option value="text">
-                                    Text
-                                  </option>
-                                  <option value="date">
-                                    Date
-                                  </option>
+                                  <option value="text">Text</option>
+                                  <option value="date">Date</option>
                                 </select>
 
                                 <label
@@ -717,14 +669,12 @@ function ActionItemsTable({ boardId }: Props) {
                                     value={draft.value}
                                     disabled={isSaving}
                                     aria-invalid={
-                                      targetStatus?.invalid ??
-                                      false
+                                      targetStatus?.invalid ?? false
                                     }
                                     onChange={(event) =>
                                       updateDraft(item.id, {
                                         ...draft,
-                                        value:
-                                          event.target.value,
+                                        value: event.target.value,
                                       })
                                     }
                                   />
@@ -735,14 +685,12 @@ function ActionItemsTable({ boardId }: Props) {
                                     value={draft.value}
                                     disabled={isSaving}
                                     aria-invalid={
-                                      targetStatus?.invalid ??
-                                      false
+                                      targetStatus?.invalid ?? false
                                     }
                                     onChange={(event) =>
                                       updateDraft(item.id, {
                                         ...draft,
-                                        value:
-                                          event.target.value,
+                                        value: event.target.value,
                                       })
                                     }
                                   />
@@ -751,34 +699,22 @@ function ActionItemsTable({ boardId }: Props) {
                                 <button
                                   type="button"
                                   disabled={isSaving}
-                                  onClick={() =>
-                                    void saveTarget(item)
-                                  }
+                                  onClick={() => void saveTarget(item)}
                                 >
-                                  {isSaving
-                                    ? 'Saving...'
-                                    : 'Save target'}
+                                  {isSaving ? 'Saving...' : 'Save target'}
                                 </button>
 
                                 {isSaving && (
-                                  <p role="status">
-                                    Saving target...
-                                  </p>
+                                  <p role="status">Saving target...</p>
                                 )}
 
-                                {targetStatus?.kind ===
-                                  'saved' && (
-                                    <p role="status">
-                                      {targetStatus.message}
-                                    </p>
-                                  )}
+                                {targetStatus?.kind === 'saved' && (
+                                  <p role="status">{targetStatus.message}</p>
+                                )}
 
-                                {targetStatus?.kind ===
-                                  'error' && (
-                                    <p role="alert">
-                                      {targetStatus.message}
-                                    </p>
-                                  )}
+                                {targetStatus?.kind === 'error' && (
+                                  <p role="alert">{targetStatus.message}</p>
+                                )}
                               </td>
 
                               {/* Hard Date */}
@@ -791,9 +727,7 @@ function ActionItemsTable({ boardId }: Props) {
                                 <StatusChooser
                                   itemTitle={item.title}
                                   status={item.status}
-                                  onChange={(next) =>
-                                    saveStatus(item.id, next)
-                                  }
+                                  onChange={(next) => saveStatus(item.id, next)}
                                 />
                               </td>
 
@@ -837,9 +771,7 @@ function ActionItemsTable({ boardId }: Props) {
                         type="text"
                         value={newItemTitle}
                         onChange={(event) =>
-                          setNewItemTitle(
-                            event.target.value,
-                          )
+                          setNewItemTitle(event.target.value)
                         }
                         placeholder="+ Add an action item"
                         aria-label="New action item title"
@@ -848,14 +780,9 @@ function ActionItemsTable({ boardId }: Props) {
 
                       <button
                         type="submit"
-                        disabled={
-                          isCreating ||
-                          !newItemTitle.trim()
-                        }
+                        disabled={isCreating || !newItemTitle.trim()}
                       >
-                        {isCreating
-                          ? 'Adding...'
-                          : 'Add Item'}
+                        {isCreating ? 'Adding...' : 'Add Item'}
                       </button>
                     </form>
                   </td>

@@ -31,3 +31,14 @@ def create_team_board(
     except BoardValidationError as error:
         # {"errors": {field: message}} lets the form show each message beside its field.
         return JSONResponse(status_code=422, content={"errors": error.errors})
+
+
+@router.post("/boards/project", response_model=Board, status_code=201)
+def create_project_board(
+    data: TeamBoardCreate,
+    service: BoardService = Depends(get_board_service),
+):
+    try:
+        return service.create_project_board(data, _services["projects"].get_projects())
+    except BoardValidationError as error:
+        return JSONResponse(status_code=422, content={"errors": error.errors})

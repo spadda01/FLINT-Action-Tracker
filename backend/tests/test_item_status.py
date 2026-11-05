@@ -371,7 +371,7 @@ def test_item_added_from_the_table_can_change_status(shared_client):
     response = change(shared_client, "project-1", created["id"], "In Progress")
 
     assert response.status_code == 200
-    assert response.json()["change"]["oldStatus"] == "Not Started"
+    assert response.json()["change"]["oldStatus"] == "Open"
 
 
 def test_table_update_records_status_in_history(shared_client):

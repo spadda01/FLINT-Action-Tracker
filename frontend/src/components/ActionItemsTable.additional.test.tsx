@@ -214,7 +214,7 @@ test('saves target changes to the backend', async () => {
             '/api/boards/project-1/items/1',
             expect.objectContaining({
                 method: 'PATCH',
-                body: JSON.stringify({ target: 'Updated Target' }),
+                body: JSON.stringify({ target: { type: 'text', value: 'Updated Target' } }),
             }),
         )
     })

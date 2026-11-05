@@ -18,6 +18,16 @@ class BoardService:
         self.groups = groups
 
     def create_team_board(self, data):
+        return self._create_board(data, "Team")
+
+    def create_project_board(self, data, projects):
+        if data.projectId is not None and data.projectId not in {
+            str(project["id"]) for project in projects
+        }:
+            raise BoardValidationError({"projectId": "Select a known project or no project."})
+        return self._create_board(data, "Project")
+
+    def _create_board(self, data, board_type):
         errors = {}
 
         name = data.name.strip()
@@ -36,8 +46,8 @@ class BoardService:
         elif not _is_web_link(egnyte_url):
             errors["egnyteFolderUrl"] = "Egnyte folder link must be a full http or https link."
 
-        # Team boards are the "no project" boards; project boards are created elsewhere.
-        if data.projectId is not None:
+        # Only project boards may carry a linked project.
+        if board_type == "Team" and data.projectId is not None:
             errors["projectId"] = "A team board cannot be linked to a project."
 
         if errors:
@@ -45,8 +55,8 @@ class BoardService:
 
         return self.repository.save_board({
             "name": name,
-            "type": "Team",
-            "projectId": None,
+            "type": board_type,
+            "projectId": data.projectId,
             "members": members,
             "egnyteFolderUrl": egnyte_url,
             "createdAt": datetime.now(timezone.utc).isoformat(),

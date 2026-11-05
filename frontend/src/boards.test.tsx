@@ -441,3 +441,11 @@ test('navigation refuses inaccessible IDs without changing history', () => {
     expect(navigate).not.toHaveBeenCalled()
     expect(history).toEqual(['project-1'])
 })
+test('skip link moves focus without changing the board route', async () => {
+    const user = userEvent.setup()
+    window.history.replaceState(null, '', '/#/boards/project-1')
+    render(<App />)
+    await user.click(screen.getByRole('link', { name: 'Skip to content' }))
+    expect(window.location.hash).toBe('#/boards/project-1')
+    expect(screen.getByRole('main')).toHaveFocus()
+})

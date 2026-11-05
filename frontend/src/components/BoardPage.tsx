@@ -1,121 +1,124 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Board } from '../boards'
 import { BoardRequestError, loadBoard } from '../services/boardService'
-import ActionItemsTable from './ActionItemsTable'
-import PriorityPanel from './PriorityPanel'
+import BoardWorkspace from './BoardWorkspace'
 
 type BoardPageProps = {
-    boardId: string
-    onOpened: (boardId: string) => void
+  boardId: string
+  onOpened: (boardId: string) => void
 }
 
 function BoardPage({ boardId, onOpened }: BoardPageProps) {
-    const [board, setBoard] = useState<Board | null>(null)
-    const [error, setError] = useState('')
-    const [isLoading, setIsLoading] = useState(true)
-    const [attempt, setAttempt] = useState(0)
-    const heading = useRef<HTMLHeadingElement>(null)
+  const [board, setBoard] = useState<Board | null>(null)
+  const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(true)
+  const [attempt, setAttempt] = useState(0)
+  const heading = useRef<HTMLHeadingElement>(null)
 
-    useEffect(() => {
-        let active = true
+  useEffect(() => {
+    let active = true
 
-        async function fetchBoard() {
-            setIsLoading(true)
-            setBoard(null)
-            setError('')
+    async function fetchBoard() {
+      setIsLoading(true)
+      setBoard(null)
+      setError('')
 
-            try {
-                //check server access again when opening a board
-                const result = await loadBoard(boardId)
+      try {
+        //check server access again when opening a board
+        const result = await loadBoard(boardId)
 
-                if (active) {
-                    setBoard(result)
-                    onOpened(result.id)
-                }
-            } catch (cause) {
-                if (active) {
-                    setError(
-                        cause instanceof BoardRequestError && cause.status === 404
-                            ? 'This board is unavailable or you do not have access.'
-                            : 'Unable to open this board. Please try again.',
-                    )
-                }
-            } finally {
-                if (active) {
-                    setIsLoading(false)
-                }
-            }
+        if (active) {
+          setBoard(result)
+          onOpened(result.id)
         }
-
-        void fetchBoard()
-
-        // ignore an old request if the user leaves this board.
-        return () => {
-            active = false
+      } catch (cause) {
+        if (active) {
+          setError(
+            cause instanceof BoardRequestError && cause.status === 404
+              ? 'This board is unavailable or you do not have access.'
+              : 'Unable to open this board. Please try again.',
+          )
         }
-    }, [boardId, attempt, onOpened])
-
-    useEffect(() => {
-        if (board) {
-            heading.current?.focus()
+      } finally {
+        if (active) {
+          setIsLoading(false)
         }
-    }, [board])
+      }
+    }
 
-    return (
-        <>
-            <a className="boards-back" href="#/">
-                Back to boards
+    void fetchBoard()
+
+    // ignore an old request if the user leaves this board.
+    return () => {
+      active = false
+    }
+  }, [boardId, attempt, onOpened])
+
+  useEffect(() => {
+    if (board) {
+      heading.current?.focus()
+    }
+  }, [board])
+
+  return (
+    <>
+      {isLoading ? (
+        <p role="status">Opening board…</p>
+      ) : error ? (
+        <section className="boards-error" aria-label="Board opening error">
+          <p role="alert">{error}</p>
+
+          <button
+            className="boards-retry"
+            type="button"
+            onClick={() => setAttempt((value) => value + 1)}
+          >
+            Retry
+          </button>
+        </section>
+      ) : (
+        board && (
+          <section
+            className="board-workspace"
+            aria-labelledby="opened-board-heading"
+          >
+            <a className="boards-back max-board-return" href="#/">
+              Back to boards
             </a>
+            <h1 id="opened-board-heading" ref={heading} tabIndex={-1}>
+              {board.name}
+              <span aria-hidden="true"> - Action Tracker</span>
+            </h1>
 
-            {isLoading ? (
-                <p role="status">Opening board…</p>
-            ) : error ? (
-                <section
-                    className="boards-error"
-                    aria-label="Board opening error"
-                >
-                    <p role="alert">{error}</p>
+            <p className="max-board-subtitle">
+              {board.type} Board — Coordination and Follow-up Items
+            </p>
+            <nav className="max-board-tabs" aria-label="Board views">
+              <button type="button" aria-current="page">
+                Table
+              </button>
+              <button
+                type="button"
+                disabled
+                title="Status Board is planned for a later sprint"
+              >
+                Status Board
+              </button>
+              <button
+                type="button"
+                disabled
+                title="Meeting view is planned for a later sprint"
+              >
+                Meeting
+              </button>
+            </nav>
+            <BoardWorkspace boardId={board.id} />
 
-                    <button
-                        className="boards-retry"
-                        type="button"
-                        onClick={() => setAttempt((value) => value + 1)}
-                    >
-                        Retry
-                    </button>
-                </section>
-            ) : board && (
-                <section
-                    className="board-list"
-                    aria-labelledby="opened-board-heading"
-                >
-                    <h2
-                        id="opened-board-heading"
-                        ref={heading}
-                        tabIndex={-1}
-                    >
-                        {board.name}
-                    </h2>
-
-                    <dl className="board-summary">
-                        <div>
-                            <dt>Type</dt>
-                            <dd>{board.type}</dd>
-                        </div>
-
-                        <div>
-                            <dt>Open items</dt>
-                            <dd>{board.openItemCount}</dd>
-                        </div>
-                    </dl>
-
-                    {/* display the action items after the selected board loads. */}
-                    <ActionItemsTable boardId={board.id} />
-                    <PriorityPanel boardId={board.id} />
-                </section>
-            )}
-        </>
-    )
+          </section>
+        )
+      )}
+    </>
+  )
 }
 
 export default BoardPage
