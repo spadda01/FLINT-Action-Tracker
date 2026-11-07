@@ -2,7 +2,10 @@ import os
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 
-from app.api.priorities import router as priorities_router, priority_service as configured_priorities
+from app.api.priorities import (
+    router as priorities_router,
+    priority_service as configured_priorities,
+)
 from app.adapters.boards import BoardRepository, MockBoardRepository
 from app.api.boards import get_board_service, router as boards_router
 from app.api.item_status import get_status_service, router as item_status_router
@@ -24,7 +27,7 @@ from app.services.status_service import (
     StatusValidationError,
 )
 from app.services.board_access import MOCK_EMPLOYEE_IDS, can_open_created_board
-
+from app.services.item_history_service import item_history_service
 
 app = FastAPI(title="FLINT Action Tracker API")
 app.include_router(priorities_router)
@@ -67,13 +70,13 @@ def has_board_access(
     repository: BoardRepository,
     service: BoardService,
 ) -> bool:
-    if any(board.id == board_id for board in list_accessible_boards(user_id, repository)):
+    if any(
+        board.id == board_id for board in list_accessible_boards(user_id, repository)
+    ):
         return True
 
     saved_board = service.get_board(board_id)
-    return bool(
-        saved_board and can_open_created_board(saved_board, user_id, service)
-    )
+    return bool(saved_board and can_open_created_board(saved_board, user_id, service))
 
 
 # Keep team-board creation on the shared router, with mock identity checks.
@@ -99,9 +102,17 @@ def get_boards(
         for board in service.repository.list_boards()
         if can_open_created_board(board, user_id, service)
     )
-    return [board.model_copy(update={"openItemCount": sum(
-        item.status != "Complete" for item in get_mock_action_items(board.id)
-    )}) for board in boards]
+    return [
+        board.model_copy(
+            update={
+                "openItemCount": sum(
+                    item.status != "Complete"
+                    for item in get_mock_action_items(board.id)
+                )
+            }
+        )
+        for board in boards
+    ]
 
 
 @app.get("/api/boards/{board_id}", response_model=Board | BoardSummary)
@@ -113,16 +124,27 @@ def get_board(
 ) -> Board | BoardSummary:
     for board in list_accessible_boards(user_id, repository):
         if board.id == board_id:
-            return board.model_copy(update={"openItemCount": sum(
-                item.status != "Complete" for item in get_mock_action_items(board_id)
-            )})
+            return board.model_copy(
+                update={
+                    "openItemCount": sum(
+                        item.status != "Complete"
+                        for item in get_mock_action_items(board_id)
+                    )
+                }
+            )
 
     # Preserve the saved board's full details, but only for an allowed member.
     saved_board = service.get_board(board_id)
     if saved_board and can_open_created_board(saved_board, user_id, service):
-        return Board.model_validate({**saved_board, "openItemCount": sum(
-            item.status != "Complete" for item in get_mock_action_items(board_id)
-        )})
+        return Board.model_validate(
+            {
+                **saved_board,
+                "openItemCount": sum(
+                    item.status != "Complete"
+                    for item in get_mock_action_items(board_id)
+                ),
+            }
+        )
     raise HTTPException(status_code=404, detail="Board not found.")
 
 
@@ -174,7 +196,16 @@ def create_board_item(
         raise HTTPException(status_code=422, detail=str(error)) from error
     with WORKSPACE_LOCK:
         ensure_section(board_id, new_item.section)
-        return create_mock_action_item(board_id, new_item)
+        created_item = create_mock_action_item(board_id, new_item)
+        # a new items fields have no previous values
+        item_history_service.record_changes(
+            board_id=board_id,
+            item_id=created_item.id,
+            actor_id=user_id,
+            before={},
+            after=created_item.model_dump(mode="json"),
+        )
+        return created_item
 
 
 @app.patch("/api/boards/{board_id}/items/{item_id}", response_model=ActionItem)
@@ -198,18 +229,33 @@ def update_board_item_target(
             raise HTTPException(status_code=422, detail=str(error)) from error
 
     with WORKSPACE_LOCK:
-        item = next((item for item in get_mock_action_items(board_id) if item.id == item_id), None)
+        item = next(
+            (item for item in get_mock_action_items(board_id) if item.id == item_id),
+            None,
+        )
         if item is None:
             raise HTTPException(status_code=404, detail="Action item not found.")
+        # capture independent values before applying the requested changes
+        before = item.model_dump(mode="json")
         if update.status is not None:
             try:
                 status_service.change_status(board_id, item_id, update.status, user_id)
             except StatusValidationError as error:
                 raise HTTPException(status_code=422, detail=error.message) from error
             except ItemNotFoundError as error:
-                raise HTTPException(status_code=404, detail="Action item not found.") from error
+                raise HTTPException(
+                    status_code=404, detail="Action item not found."
+                ) from error
         for field in update.model_fields_set - {"status"}:
             setattr(item, field, getattr(update, field))
+
+        item_history_service.record_changes(
+            board_id=board_id,
+            item_id=item_id,
+            actor_id=user_id,
+            before=before,
+            after=item.model_dump(mode="json"),
+        )
         return item
 
 
