@@ -72,7 +72,7 @@ export async function loadStatusHistory(
     boardId: string,
     itemId: number,
 ): Promise<StatusHistoryEntry[]> {
-    const response = await send(`${itemPath(boardId, itemId)}/history`)
+    const response = await send(`${itemPath(boardId, itemId)}/status-history`)
 
     if (!response.ok) throw await failureFor(response)
     return (await response.json()) as StatusHistoryEntry[]

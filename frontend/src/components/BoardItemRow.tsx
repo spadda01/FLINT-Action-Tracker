@@ -6,6 +6,8 @@ import { displayTarget, targetFromInput, type TargetDisplay } from '../target'
 import StatusChooser from './StatusChooser'
 import WorkspaceDialog from './WorkspaceDialog'
 import './OwnerChips.css'
+import ItemHistory from './ItemHistory'
+
 
 type Field = 'title' | 'owners' | 'target' | 'priority' | 'hardDate'
 type Update = Partial<Omit<ItemInput, 'section'>>
@@ -308,6 +310,7 @@ export default function BoardItemRow({
 }: Props) {
     const [editing, setEditing] = useState<Field | null>(null)
     const [moveOpen, setMoveOpen] = useState(false)
+    const [historyOpen, setHistoryOpen] = useState(false)
     const currentSection = sections.find(
         (s) => s.name === (item.section.trim() || 'General'),
     )
@@ -505,7 +508,27 @@ export default function BoardItemRow({
                     </WorkspaceDialog>
                 )}
             </td>
-            <td className="max-title-cell">{cell('title', item.title)}</td>
+            <td className="max-title-cell">
+                {cell('title', item.title)}
+                <button
+                    type="button"
+                    className="item-history-button"
+                    aria-label={`View history for ${item.title}`}
+                    aria-haspopup="dialog"
+                    onClick={() => setHistoryOpen(true)}
+                >
+                    History
+                </button>
+
+                {historyOpen && (
+                    <WorkspaceDialog
+                        title={`History: ${item.title}`}
+                        onClose={() => setHistoryOpen(false)}
+                    >
+                        <ItemHistory boardId={boardId} itemId={item.id} />
+                    </WorkspaceDialog>
+                )}
+            </td>
             <td>
                 {cell(
                     'owners',
@@ -583,6 +606,6 @@ export default function BoardItemRow({
                     </button>
                 )}
             </td>
-        </tr>
+        </tr >
     )
 }

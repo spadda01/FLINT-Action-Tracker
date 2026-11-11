@@ -28,8 +28,9 @@ Board access is checked before updates are allowed.
 
 ## History dependency
 
-Recording owner changes depends on AT-57's general item history.
-Integration must verify additions, removals, reordering, and type changes.
+Owner changes use AT-57's general item history. Integration tests verify
+that adding, removing, reordering, and clearing owners record the previous
+and new owner lists. Saving unchanged owners adds no entry.
 
 ## Mock limitations
 
