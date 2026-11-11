@@ -16,6 +16,9 @@ from app.services.status_service import (
     StatusService,
     StatusValidationError,
 )
+from app.adapters.board_sections import WORKSPACE_LOCK
+from app.schemas.item_history import ItemHistoryEntry
+from app.services.item_history_service import item_history_service
 
 router = APIRouter(prefix="/api", tags=["Item status"])
 
@@ -67,16 +70,32 @@ def change_item_status(
     service: StatusService = Depends(get_status_service),
 ):
     try:
-        return service.change_status(board_id, item_id, data.status, user_id)
+        with WORKSPACE_LOCK:
+            result = service.change_status(board_id, item_id, data.status, user_id)
+            change = result["change"]
+
+            # an unchanged status produces no history entry
+            if change is not None:
+                item_history_service.record_changes(
+                    board_id=board_id,
+                    item_id=item_id,
+                    actor_id=user_id,
+                    before={"status": change["oldStatus"]},
+                    after={"status": change["newStatus"]},
+                )
+        return result
+
     except StatusValidationError as error:
         # Same {"errors": {field: message}} shape as the team board form uses.
-        return JSONResponse(status_code=422, content={"errors": {"status": error.message}})
+        return JSONResponse(
+            status_code=422, content={"errors": {"status": error.message}}
+        )
     except ItemNotFoundError:
         raise _item_not_found()
 
 
 @router.get(
-    "/boards/{board_id}/items/{item_id}/history",
+    "/boards/{board_id}/items/{item_id}/status-history",
     response_model=list[StatusHistoryEntry],
 )
 def get_item_status_history(
@@ -89,3 +108,23 @@ def get_item_status_history(
         return service.get_history(board_id, item_id)
     except ItemNotFoundError:
         raise _item_not_found()
+
+
+@router.get(
+    "/boards/{board_id}/items/{item_id}/history",
+    response_model=list[ItemHistoryEntry],
+)
+def get_item_history(
+    board_id: str,
+    item_id: int,
+    _user_id: str = Depends(require_board_member),
+    service: StatusService = Depends(get_status_service),
+):
+    with WORKSPACE_LOCK:
+        try:
+            # Confirm the item exists before returning its history.
+            service.get_item(board_id, item_id)
+        except ItemNotFoundError:
+            raise _item_not_found()
+
+        return item_history_service.get_history(board_id, item_id)
