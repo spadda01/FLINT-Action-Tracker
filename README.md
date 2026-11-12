@@ -59,6 +59,21 @@ npm --prefix frontend run lint
 npm --prefix frontend run build
 ```
 
+### Assigning an organization to an external owner
+
+Story: a curator picks a known company so the same engineer or vendor is spelled consistently across boards.
+
+**User guide.** On any project or team board, tick **External** on an owner (in the Add item dialog or by clicking the Owners cell) and choose the company from the **Organization** dropdown. The company name then appears beside the owner, and board search matches it. Choosing "No organization" is allowed. Unticking External clears the organization. Keyboard: Tab to the dropdown, use the arrow keys or type to choose; Ctrl+Enter saves the inline editor and Escape cancels it.
+
+**Error states.** If the company list cannot be loaded, the dropdown is disabled and shows "Unable to load organizations" with a **Retry** button; the rest of the board keeps working. If a save is rejected (for example the company is no longer in the list), the message is shown, the draft is kept and **Retry save** is offered. A saved organization that is missing from the list is kept and labelled "(not in list)".
+
+**Architecture / runbook.**
+- Backend: `CompanyAdapter` (`backend/app/adapters/interfaces.py`) with `MockCompanyService` (`mock_companies.py`) registered as `services["companies"]`. `GET /api/companies` returns `[{id, name}]`. Tests or a future real adapter replace it through the `get_company_adapter` dependency in `backend/app/main.py`.
+- Owners gain an optional `organizationId`. Create and update reject unknown IDs, and IDs on non-external owners, with 422. Existing owners without one return `organizationId: null`.
+- Frontend: `services/organizationService.ts` loads the list, and `components/OrganizationSelect.tsx` is the shared dropdown used by `BoardItemDialog` and `BoardItemRow`. `BoardWorkspace` loads the list once per board, separately from board data.
+- Data: the companies in `mock_companies.py` are fictional placeholders. The real FLINT list will be supplied later as a new `CompanyAdapter`; do not commit real company data or credentials.
+- Oracle Primavera Cloud (OPC) has no connection to this feature and receives no writes.
+
 ### maxgrot branch
 - Project Board creation
 - Allowing for "no project" specifically

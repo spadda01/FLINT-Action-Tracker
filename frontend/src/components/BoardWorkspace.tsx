@@ -7,6 +7,11 @@ import {
   type FormEvent,
 } from 'react'
 import { loadActionItems, type ActionItem } from '../services/actionItemService'
+import {
+  loadOrganizations,
+  organizationName,
+  type OrganizationsState,
+} from '../services/organizationService'
 import { getPriorities, type PriorityLevel } from '../services/priorityService'
 import {
   changeItemStatus,
@@ -42,6 +47,11 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
   const [sections, setSections] = useState<Section[]>([])
   const [priorities, setPriorities] = useState<PriorityLevel[]>([])
   const [statuses, setStatuses] = useState<string[]>([])
+  const [organizations, setOrganizations] = useState<OrganizationsState>({
+    status: 'loading',
+    organizations: [],
+  })
+  const [organizationAttempt, setOrganizationAttempt] = useState(0)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [attempt, setAttempt] = useState(0)
@@ -99,6 +109,21 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
       active = false
     }
   }, [boardId, attempt])
+  // The organization list loads separately so a failure never blocks the board.
+  useEffect(() => {
+    let active = true
+    setOrganizations((current) => ({ ...current, status: 'loading' }))
+    loadOrganizations()
+      .then((list) => {
+        if (active) setOrganizations({ status: 'ready', organizations: list })
+      })
+      .catch(() => {
+        if (active) setOrganizations({ status: 'error', organizations: [] })
+      })
+    return () => {
+      active = false
+    }
+  }, [organizationAttempt])
   useEffect(
     () =>
       subscribeToPriorityUpdates(({ boardId: id, itemId, priority }) => {
@@ -122,7 +147,11 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
           [
             item.title,
             item.section,
-            ...item.owners.map((owner) => owner.name),
+            ...item.owners.flatMap((owner) => [
+              owner.name,
+              organizationName(organizations.organizations, owner.organizationId) ??
+                '',
+            ]),
             displayTarget(item.target).value,
           ].some((value) => value.toLowerCase().includes(query))),
     )
@@ -139,7 +168,7 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
           (priorities.find((p) => p.name === b.priority)?.rank ?? 999),
       )
     return selected
-  }, [items, search, filters, priorities])
+  }, [items, search, filters, priorities, organizations.organizations])
   const orderingRestricted =
     !!search.trim() || filters.attention || !!filters.priority || !!filters.sort
 
@@ -547,6 +576,10 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
                         allItems={items}
                         priorities={priorities}
                         statuses={statuses}
+                        organizations={organizations}
+                        onRetryOrganizations={() =>
+                          setOrganizationAttempt((n) => n + 1)
+                        }
                         moving={moving || orderingRestricted}
                         onUpdate={(changes) => update(item, changes)}
                         onStatus={(next) => status(item, next)}
@@ -617,6 +650,8 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
           sections={sections}
           priorities={priorities}
           statuses={statuses}
+          organizations={organizations}
+          onRetryOrganizations={() => setOrganizationAttempt((n) => n + 1)}
           onClose={() => setAdding(false)}
           onSave={async (input) => {
             const saved = await createItem(boardId, input)
