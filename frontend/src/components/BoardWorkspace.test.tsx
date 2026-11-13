@@ -240,6 +240,59 @@ test('opens add dialog with keyboard, rejects spaces and sends every chosen fiel
     target: { type: 'date', value: '2026-11-09' },
   })
 })
+test('creates free-text owners as external and suggests same-board external owners', async () => {
+  const user = userEvent.setup()
+
+  await openWorkspace()
+
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Edit owners for Share notes',
+    }),
+  )
+
+  await user.click(
+    screen.getByRole('button', {
+      name: '+ Add owner',
+    }),
+  )
+
+  const ownerInput = screen.getByLabelText('Owner 1 for Share notes')
+
+  expect(
+    screen.getByLabelText('External', { exact: true }),
+  ).toBeChecked()
+
+  expect(ownerInput).toHaveAttribute(
+    'list',
+    'external-owner-suggestions-2',
+  )
+
+  const suggestionList = document.getElementById(
+    'external-owner-suggestions-2',
+  )
+
+  expect(
+  suggestionList?.querySelector('option[value="Jim"]'),
+).toBeInTheDocument()
+
+  await user.type(ownerInput, 'Carrier')
+
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Save',
+    }),
+  )
+
+  await waitFor(() => {
+    expect(items[1].owners).toEqual([
+      {
+        name: 'Carrier',
+        isExternal: true,
+      },
+    ])
+  })
+})
 
 test('failed target and priority saves retain draft and retry; configured levels appear', async () => {
   const user = userEvent.setup()
