@@ -5,6 +5,7 @@ import type { PriorityLevel } from '../services/priorityService'
 import { displayTarget, targetFromInput, type TargetDisplay } from '../target'
 import StatusChooser from './StatusChooser'
 import WorkspaceDialog from './WorkspaceDialog'
+import OwnerTypeBadge from './OwnerTypeBadge'
 
 type Field = 'title' | 'owners' | 'target' | 'priority' | 'hardDate'
 type Update = Partial<Omit<ItemInput, 'section'>>
@@ -471,8 +472,7 @@ export default function BoardItemRow({
             ? item.owners.map((owner, index) => (
                 <span key={index}>
                   {index > 0 && ' / '}
-                  {owner.name}
-                  {owner.isExternal && ' (external)'}
+                  <OwnerTypeBadge owner={owner} />
                 </span>
               ))
             : 'Assign owners',

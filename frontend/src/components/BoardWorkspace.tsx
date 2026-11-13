@@ -31,11 +31,23 @@ import {
 import { dateFirstSorting, displayTarget } from '../target'
 import BoardItemDialog from './BoardItemDialog'
 import BoardItemRow from './BoardItemRow'
+import { getOwnerType } from '../services/ownerTypes'
 import WorkspaceDialog from './WorkspaceDialog'
 import './BoardWorkspace.css'
 
-type Filter = { attention: boolean; priority: string; sort: string }
-const EMPTY_FILTER: Filter = { attention: false, priority: '', sort: '' }
+type Filter = {
+  attention: boolean
+  priority: string
+  ownerType: string
+  sort: string
+}
+
+const EMPTY_FILTER: Filter = {
+  attention: false,
+  priority: '',
+  ownerType: '',
+  sort: '',
+}
 
 export default function BoardWorkspace({ boardId }: { boardId: string }) {
   const [items, setItems] = useState<ActionItem[]>([])
@@ -118,6 +130,8 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
       (item) =>
         (!filters.attention || item.attention) &&
         (!filters.priority || item.priority === filters.priority) &&
+        (!filters.ownerType ||
+          item.owners.some((owner) => getOwnerType(owner) === filters.ownerType)) &&
         (!query ||
           [
             item.title,
@@ -141,7 +155,7 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
     return selected
   }, [items, search, filters, priorities])
   const orderingRestricted =
-    !!search.trim() || filters.attention || !!filters.priority || !!filters.sort
+    !!search.trim() || filters.attention || !!filters.priority || !!filters.ownerType || !!filters.sort
 
   async function update(
     item: ActionItem,
@@ -377,7 +391,7 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
           }}
         >
           Filters
-          {filters.attention || filters.priority || filters.sort ? ' •' : ''}
+          {filters.attention || filters.priority || filters.ownerType || filters.sort ? ' •' : ''}
         </button>
         <button
           type="button"
@@ -670,6 +684,24 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
                 {priorities.map((priority) => (
                   <option key={priority.name}>{priority.name}</option>
                 ))}
+              </select>
+            </label>
+            <label>
+              Owner type
+              <select
+                aria-label="Owner type"
+                value={filterDraft.ownerType}
+                onChange={(event) =>
+                  setFilterDraft((current) => ({
+                    ...current,
+                    ownerType: event.target.value,
+                  }))
+                }
+              >
+                <option value="">All owner types</option>
+                <option value="staff">Staff</option>
+                <option value="external">Free-text external</option>
+                <option value="organization">Organization-backed</option>
               </select>
             </label>
             <label>

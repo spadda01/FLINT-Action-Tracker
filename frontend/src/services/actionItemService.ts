@@ -8,6 +8,7 @@ export type ActionItem = {
     owners: {
         name: string
         isExternal: boolean
+        organizationId?: string | null
     }[]
     target: Target | string
     hardDate: string | null

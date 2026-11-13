@@ -473,3 +473,117 @@ test.each(['project-1', 'team-1'])(
     )
   },
 )
+
+test('AT-147 filters board items by all three stored owner types', async () => {
+  const user = userEvent.setup()
+
+  items.push(
+    {
+      ...structuredClone(seed[1]),
+      id: 3,
+      title: 'Staff task',
+      owners: [{ name: 'Alice', isExternal: false }],
+    },
+    {
+      ...structuredClone(seed[1]),
+      id: 4,
+      title: 'Organization task',
+      owners: [
+        {
+          name: 'Carol',
+          isExternal: true,
+          organizationId: 'org-123',
+        },
+      ],
+    },
+  )
+
+  await openWorkspace()
+
+  async function applyOwnerFilter(type: string) {
+    await user.click(
+      screen.getByRole('button', { name: /Filters/ }),
+    )
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: 'Owner type' }),
+      type,
+    )
+    await user.click(screen.getByRole('button', { name: 'Apply' }))
+  }
+
+  await applyOwnerFilter('staff')
+  expect(screen.getByRole('button', {
+    name: 'Edit title for Staff task',
+  })).toBeInTheDocument()
+  expect(screen.queryByRole('button', {
+    name: 'Edit title for Confirm equipment',
+  })).not.toBeInTheDocument()
+
+  await applyOwnerFilter('external')
+  expect(screen.getByRole('button', {
+    name: 'Edit title for Confirm equipment',
+  })).toBeInTheDocument()
+  expect(screen.queryByRole('button', {
+    name: 'Edit title for Organization task',
+  })).not.toBeInTheDocument()
+
+  await applyOwnerFilter('organization')
+  expect(screen.getByRole('button', {
+    name: 'Edit title for Organization task',
+  })).toBeInTheDocument()
+  expect(screen.queryByRole('button', {
+    name: 'Edit title for Staff task',
+  })).not.toBeInTheDocument()
+
+  await user.click(screen.getByRole('button', { name: /Filters/ }))
+  await user.click(screen.getByRole('button', { name: 'Clear' }))
+
+  expect(screen.getByRole('button', {
+    name: 'Edit title for Staff task',
+  })).toBeInTheDocument()
+  expect(screen.getByRole('button', {
+    name: 'Edit title for Organization task',
+  })).toBeInTheDocument()
+})
+
+test('AT-147 combines owner type with priority and attention filters', async () => {
+  const user = userEvent.setup()
+
+  items.push({
+    ...structuredClone(seed[1]),
+    id: 3,
+    title: 'Other external task',
+    owners: [{ name: 'David', isExternal: true }],
+    priority: 'Low',
+    attention: false,
+  })
+
+  await openWorkspace()
+
+  await user.click(screen.getByRole('button', { name: 'Filters' }))
+
+  await user.selectOptions(
+    screen.getByRole('combobox', { name: 'Owner type' }),
+    'external',
+  )
+
+  await user.selectOptions(
+    screen.getByRole('combobox', { name: 'Priority' }),
+    'High',
+  )
+
+  await user.click(screen.getByLabelText('Attention items only'))
+  await user.click(screen.getByRole('button', { name: 'Apply' }))
+
+  expect(screen.getByRole('button', {
+    name: 'Edit title for Confirm equipment',
+  })).toBeInTheDocument()
+
+  expect(screen.queryByRole('button', {
+    name: 'Edit title for Other external task',
+  })).not.toBeInTheDocument()
+
+  expect(screen.queryByRole('button', {
+    name: 'Edit title for Share notes',
+  })).not.toBeInTheDocument()
+})
