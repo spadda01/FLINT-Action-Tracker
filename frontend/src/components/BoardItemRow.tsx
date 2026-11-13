@@ -5,6 +5,11 @@ import type { PriorityLevel } from '../services/priorityService'
 import { displayTarget, targetFromInput, type TargetDisplay } from '../target'
 import StatusChooser from './StatusChooser'
 import WorkspaceDialog from './WorkspaceDialog'
+import OrganizationSelect from './OrganizationSelect'
+import {
+  organizationName,
+  type OrganizationsState,
+} from '../services/organizationService'
 
 type Field = 'title' | 'owners' | 'target' | 'priority' | 'hardDate'
 type Update = Partial<Omit<ItemInput, 'section'>>
@@ -16,6 +21,8 @@ type Props = {
   allItems: ActionItem[]
   priorities: PriorityLevel[]
   statuses: string[]
+  organizations: OrganizationsState
+  onRetryOrganizations: () => void
   moving: boolean
   onUpdate: (update: Update) => Promise<void>
   onStatus: (status: string) => Promise<void>
@@ -30,12 +37,16 @@ function FieldEditor({
   item,
   field,
   priorities,
+  organizations,
+  onRetryOrganizations,
   onSave,
   onClose,
 }: {
   item: ActionItem
   field: Field
   priorities: PriorityLevel[]
+  organizations: OrganizationsState
+  onRetryOrganizations: () => void
   onSave: (update: Update) => Promise<void>
   onClose: () => void
 }) {
@@ -168,7 +179,13 @@ function FieldEditor({
                       setOwners((current) =>
                         current.map((o, i) =>
                           i === index
-                            ? { ...o, isExternal: e.target.checked }
+                            ? {
+                                ...o,
+                                isExternal: e.target.checked,
+                                organizationId: e.target.checked
+                                  ? o.organizationId
+                                  : null,
+                              }
                             : o,
                         ),
                       )
@@ -176,6 +193,21 @@ function FieldEditor({
                   />
                   External
                 </label>
+                {owner.isExternal && (
+                  <OrganizationSelect
+                    label={`Organization for owner ${index + 1} of ${item.title}`}
+                    value={owner.organizationId}
+                    state={organizations}
+                    onRetry={onRetryOrganizations}
+                    onChange={(organizationId) =>
+                      setOwners((current) =>
+                        current.map((o, i) =>
+                          i === index ? { ...o, organizationId } : o,
+                        ),
+                      )
+                    }
+                  />
+                )}
                 <button
                   type="button"
                   onClick={() =>
@@ -195,7 +227,7 @@ function FieldEditor({
               onClick={() =>
                 setOwners((current) => [
                   ...current,
-                  { name: '', isExternal: false },
+                  { name: '', isExternal: false, organizationId: null },
                 ])
               }
             >
@@ -255,6 +287,8 @@ export default function BoardItemRow({
   allItems,
   priorities,
   statuses,
+  organizations,
+  onRetryOrganizations,
   moving,
   onUpdate,
   onStatus,
@@ -290,6 +324,8 @@ export default function BoardItemRow({
         item={item}
         field={field}
         priorities={priorities}
+        organizations={organizations}
+        onRetryOrganizations={onRetryOrganizations}
         onSave={onUpdate}
         onClose={() => closeEditor(field)}
       />
@@ -473,6 +509,15 @@ export default function BoardItemRow({
                   {index > 0 && ' / '}
                   {owner.name}
                   {owner.isExternal && ' (external)'}
+                  {owner.isExternal && owner.organizationId && (
+                    <span className="max-organization-name">
+                      {' — '}
+                      {organizationName(
+                        organizations.organizations,
+                        owner.organizationId,
+                      )}
+                    </span>
+                  )}
                 </span>
               ))
             : 'Assign owners',

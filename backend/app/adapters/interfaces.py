@@ -26,6 +26,14 @@ class OrganizationAdapter(ABC):
         pass
 
 
+class CompanyAdapter(ABC):
+    """Known companies (vendors, engineering firms) that can be assigned to external owners."""
+
+    @abstractmethod
+    def get_companies(self):
+        pass
+
+
 class AttachmentAdapter(ABC):
     @abstractmethod
     def save_attachment(self, filename, content):

@@ -7,6 +7,8 @@ from app.schemas.action_items import TargetValue
 class ActionOwner(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     isExternal: bool
+    # ID from the known-company list; only external owners may have one.
+    organizationId: str | None = Field(default=None, max_length=100)
 
 
 class ActionItem(BaseModel):

@@ -11,7 +11,7 @@ MOCK_ACTION_ITEMS = {
             title="Review construction drawings",
             owners=[
                 {"name": "Austin", "isExternal": False},
-                {"name": "Sarah", "isExternal": True},
+                {"name": "Sarah", "isExternal": True, "organizationId": "CO001"},
             ],
             target="Before next meeting",
             hardDate="2026-10-30",

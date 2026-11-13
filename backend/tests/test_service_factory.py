@@ -7,6 +7,7 @@ from app.adapters.interfaces import (
     EmployeeAdapter,
     GroupAdapter,
     OrganizationAdapter,
+    CompanyAdapter,
     AttachmentAdapter,
     NotificationAdapter,
 )
@@ -22,6 +23,7 @@ def test_factory_creates_all_services(monkeypatch):
         "employees",
         "groups",
         "organizations",
+        "companies",
         "attachments",
         "notifications",
     }
@@ -36,6 +38,7 @@ def test_factory_services_use_interfaces(monkeypatch):
     assert isinstance(services["employees"], EmployeeAdapter)
     assert isinstance(services["groups"], GroupAdapter)
     assert isinstance(services["organizations"], OrganizationAdapter)
+    assert isinstance(services["companies"], CompanyAdapter)
     assert isinstance(services["attachments"], AttachmentAdapter)
     assert isinstance(services["notifications"], NotificationAdapter)
 
