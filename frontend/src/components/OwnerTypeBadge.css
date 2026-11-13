@@ -1,0 +1,40 @@
+.owner-type-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.owner-type-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  cursor: help;
+  border-radius: 4px;
+}
+
+.owner-type-indicator:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+
+.owner-type-tooltip {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 6px);
+  background: #20252b;
+  color: white;
+  padding: 6px 10px;
+  border-radius: 5px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  z-index: 20;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.owner-type-indicator:hover + .owner-type-tooltip,
+.owner-type-indicator:focus-visible + .owner-type-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
