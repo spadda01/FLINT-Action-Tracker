@@ -14,6 +14,7 @@ type Props = {
   sections: Section[]
   sectionItems: ActionItem[]
   allItems: ActionItem[]
+  externalOwnerSuggestions: string[]
   priorities: PriorityLevel[]
   statuses: string[]
   moving: boolean
@@ -30,12 +31,14 @@ function FieldEditor({
   item,
   field,
   priorities,
+  externalOwnerSuggestions,
   onSave,
   onClose,
 }: {
   item: ActionItem
   field: Field
   priorities: PriorityLevel[]
+  externalOwnerSuggestions: string[]
   onSave: (update: Update) => Promise<void>
   onClose: () => void
 }) {
@@ -145,62 +148,75 @@ function FieldEditor({
           </>
         ) : field === 'owners' ? (
           <>
+            
             {owners.map((owner, index) => (
-              <div className="max-owner-row" key={index}>
-                <input
-                  autoFocus={index === 0}
-                  aria-label={`Owner ${index + 1} for ${item.title}`}
-                  maxLength={200}
-                  value={owner.name}
-                  onChange={(e) =>
-                    setOwners((current) =>
-                      current.map((o, i) =>
-                        i === index ? { ...o, name: e.target.value } : o,
-                      ),
-                    )
-                  }
-                />
-                <label className="max-check">
-                  <input
-                    type="checkbox"
-                    checked={owner.isExternal}
-                    onChange={(e) =>
-                      setOwners((current) =>
-                        current.map((o, i) =>
-                          i === index
-                            ? { ...o, isExternal: e.target.checked }
-                            : o,
-                        ),
-                      )
-                    }
-                  />
-                  External
-                </label>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setOwners((current) =>
-                      current.filter((_, i) => i !== index),
-                    )
-                  }
-                  aria-label={`Remove owner ${index + 1}`}
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-            <button
-              type="button"
-              autoFocus={!owners.length}
-              onClick={() =>
-                setOwners((current) => [
-                  ...current,
-                  { name: '', isExternal: false },
-                ])
-              }
-            >
-              + Add owner
-            </button>
+  <div className="max-owner-row" key={index}>
+    <input
+      autoFocus={index === 0}
+      aria-label={`Owner ${index + 1} for ${item.title}`}
+      maxLength={200}
+      list={`external-owner-suggestions-${item.id}`}
+      value={owner.name}
+      onChange={(e) =>
+        setOwners((current) =>
+          current.map((o, i) =>
+            i === index ? { ...o, name: e.target.value } : o,
+          ),
+        )
+      }
+    />
+
+    <label className="max-check">
+      <input
+        type="checkbox"
+        checked={owner.isExternal}
+        onChange={(e) =>
+          setOwners((current) =>
+            current.map((o, i) =>
+              i === index
+                ? { ...o, isExternal: e.target.checked }
+                : o,
+            ),
+          )
+        }
+      />
+      External
+    </label>
+
+    <button
+      type="button"
+      onClick={() =>
+        setOwners((current) =>
+          current.filter((_, i) => i !== index),
+        )
+      }
+      aria-label={`Remove owner ${index + 1}`}
+    >
+      ×
+    </button>
+  </div>
+))}
+
+<datalist id={`external-owner-suggestions-${item.id}`}>
+  {externalOwnerSuggestions.map((name) => (
+    <option key={name} value={name} />
+  ))}
+</datalist>
+
+<button
+  type="button"
+  autoFocus={!owners.length}
+  onClick={() =>
+    setOwners((current) => [
+      ...current,
+      { name: '', isExternal: true },
+    ])
+  }
+>
+  + Add owner
+</button>
+
+              
           </>
         ) : field === 'priority' ? (
           <label>
@@ -253,6 +269,7 @@ export default function BoardItemRow({
   sections,
   sectionItems,
   allItems,
+  externalOwnerSuggestions,
   priorities,
   statuses,
   moving,
@@ -290,6 +307,7 @@ export default function BoardItemRow({
         item={item}
         field={field}
         priorities={priorities}
+        externalOwnerSuggestions={externalOwnerSuggestions}
         onSave={onUpdate}
         onClose={() => closeEditor(field)}
       />
