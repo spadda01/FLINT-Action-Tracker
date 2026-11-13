@@ -18,6 +18,7 @@ from app.adapters.mock_action_items import (
 from app.schemas.action_item import ActionItem, ActionItemCreate, ActionItemUpdate
 from app.adapters.board_sections import WORKSPACE_LOCK, ensure_section
 from app.api.workspace import router as workspace_router
+from app.api.employees import router as employees_router
 from app.services.status_service import (
     ItemNotFoundError,
     StatusService,
@@ -79,6 +80,7 @@ def has_board_access(
 # Keep team-board creation on the shared router, with mock identity checks.
 app.include_router(boards_router, dependencies=[Depends(get_current_user_id)])
 app.include_router(item_status_router)
+app.include_router(employees_router)
 
 
 @app.get("/api/me")

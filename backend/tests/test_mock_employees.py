@@ -6,7 +6,7 @@ def test_get_employees():
     service = MockEmployeeService()
     employees = service.get_employees()
 
-    assert len(employees) == 3
+    assert len(employees) == 8
     assert employees[0]["name"] == "John Smith"
 
 
