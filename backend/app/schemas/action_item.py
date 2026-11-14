@@ -79,3 +79,27 @@ class ActionItemUpdate(BaseModel):
         if value is None:
             raise ValueError("This field cannot be null.")
         return value
+
+
+class ArchiveItemRequest(BaseModel):
+    reason: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("reason")
+    @classmethod
+    def reason_not_blank(cls, value):
+        value = value.strip()
+        if not value:
+            raise ValueError("An archive reason is required.")
+        return value
+
+
+class ArchivedActionItem(BaseModel):
+    item: ActionItem
+    reason: str
+    archivedBy: str
+    archivedAt: str
+
+
+class ArchivedActionItemsResponse(BaseModel):
+    archivedItems: list[ArchivedActionItem]
+    canRestore: bool

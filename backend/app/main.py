@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timezone
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 
@@ -12,10 +13,19 @@ from app.services.board_service import BoardService
 from app.services.boards import list_accessible_boards
 from app.services.service_factory import create_services
 from app.adapters.mock_action_items import (
+    archive_mock_action_item,
     create_mock_action_item,
     get_mock_action_items,
+    list_mock_archived_action_items,
+    restore_mock_action_item,
 )
-from app.schemas.action_item import ActionItem, ActionItemCreate, ActionItemUpdate
+from app.schemas.action_item import (
+    ActionItem,
+    ActionItemCreate,
+    ActionItemUpdate,
+    ArchiveItemRequest,
+    ArchivedActionItemsResponse,
+)
 from app.adapters.board_sections import WORKSPACE_LOCK, ensure_section
 from app.api.workspace import router as workspace_router
 from app.services.status_service import (
@@ -23,7 +33,11 @@ from app.services.status_service import (
     StatusService,
     StatusValidationError,
 )
-from app.services.board_access import MOCK_EMPLOYEE_IDS, can_open_created_board
+from app.services.board_access import (
+    MOCK_EMPLOYEE_IDS,
+    can_open_created_board,
+    is_board_admin,
+)
 
 
 app = FastAPI(title="FLINT Action Tracker API")
@@ -211,6 +225,80 @@ def update_board_item_target(
         for field in update.model_fields_set - {"status"}:
             setattr(item, field, getattr(update, field))
         return item
+
+
+@app.get(
+    "/api/boards/{board_id}/items/archived",
+    response_model=ArchivedActionItemsResponse,
+)
+def get_archived_board_items(
+    board_id: str,
+    user_id: str = Depends(get_current_user_id),
+    repository: BoardRepository = Depends(get_board_repository),
+    service: BoardService = Depends(get_board_service),
+) -> ArchivedActionItemsResponse:
+    require_board_access(board_id, user_id, repository, service)
+    with WORKSPACE_LOCK:
+        archived_items = list_mock_archived_action_items(board_id)
+    return ArchivedActionItemsResponse(
+        archivedItems=archived_items,
+        canRestore=is_board_admin(board_id, user_id, service),
+    )
+
+
+@app.post(
+    "/api/boards/{board_id}/items/{item_id}/archive",
+    response_model=ActionItem,
+)
+def archive_board_item(
+    board_id: str,
+    item_id: int,
+    data: ArchiveItemRequest,
+    user_id: str = Depends(get_current_user_id),
+    repository: BoardRepository = Depends(get_board_repository),
+    service: BoardService = Depends(get_board_service),
+) -> ActionItem:
+    require_board_access(board_id, user_id, repository, service)
+    with WORKSPACE_LOCK:
+        record = archive_mock_action_item(
+            board_id,
+            item_id,
+            data.reason,
+            user_id,
+            datetime.now(timezone.utc).isoformat(),
+        )
+    if record is None:
+        raise HTTPException(status_code=404, detail="Action item not found.")
+    return record["item"]
+
+
+@app.post(
+    "/api/boards/{board_id}/items/{item_id}/restore",
+    response_model=ActionItem,
+)
+def restore_board_item(
+    board_id: str,
+    item_id: int,
+    user_id: str = Depends(get_current_user_id),
+    repository: BoardRepository = Depends(get_board_repository),
+    service: BoardService = Depends(get_board_service),
+) -> ActionItem:
+    require_board_access(board_id, user_id, repository, service)
+    if not is_board_admin(board_id, user_id, service):
+        raise HTTPException(
+            status_code=403,
+            detail="Only a board admin can restore archived items.",
+        )
+    with WORKSPACE_LOCK:
+        item = restore_mock_action_item(
+            board_id,
+            item_id,
+            user_id,
+            datetime.now(timezone.utc).isoformat(),
+        )
+    if item is None:
+        raise HTTPException(status_code=404, detail="Archived item not found.")
+    return item
 
 
 def check_access(x_mock_role: str = Header(default="viewer")):

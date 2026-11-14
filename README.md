@@ -41,10 +41,11 @@ Board and item data use in-memory mock storage and reset on backend restart. Rec
 ### Board workspace controls
 
 - Click a title, owners, target, hard date, or priority to edit it. Save confirms the change; failed saves keep the draft and offer Retry. Text targets preserve whitespace and line breaks.
-- Status and attention controls save to the shared item store. The add-item dialog saves all entered fields; title-only quick entry starts with Open status and Medium priority.
+- Status and attention controls save to the shared item store. Complete items remain in place with a struck-through title; use Filters → Hide completed to hide them without deleting them. The add-item dialog saves all entered fields; title-only quick entry starts with Open status and Medium priority.
+- Use an item's Archive action for a mistaken entry and provide a reason. Archived item details and status history are retained; board members can review the archive record, while only the board admin can restore the item. There is no delete action.
 - Drag a row's move handle to another row or an empty section. Keyboard users can open the handle's Move dialog, or use Alt+Up/Down to reorder within a section. Clear search, filters and sorting before moving items so the saved order is unambiguous.
 - Add, rename and order sections with the controls beside their headings. Quick entry is available in each section and keeps focus after Enter.
-- Filters apply attention/priority filtering and target/priority sorting. Search and filter selections are temporary view state and reset on page refresh.
+- Filters apply attention/completed/priority filtering and target/priority sorting. Search and filter selections are temporary view state and reset on page refresh.
 - Team-board creation uses a keyboard-accessible modal styled from `Project_Board/` with the shared member adapters and save service.
 - Status Board and Meeting remain disabled until those views are implemented. The old standalone apps are retained as reference implementations.
 
@@ -68,7 +69,7 @@ npm --prefix frontend run build
 #### AT-34 subtask AT-36
 - The Team Create board is now functional with drop downs, multiple field entries, and individual text entries.
 
-### sorey branch
+### sorey AT-66 branch
 - Set a target as text or a date
 
 #### AT-66 subtask AT-152
@@ -88,3 +89,15 @@ npm --prefix frontend run build
   3. Select and save a calendar date.
   4. Sort by target; verify dates appear first chronologically and text targets follow.
   5. Use Tab and Enter to operate the sort and save controls. Automated tests cover the relevant error and empty states.
+
+  ### sorey AT-58 branch
+  - Complete an item without deleting it
+
+  #### AT-58 subtask AT-128
+  - Completed items are struck through
+  - Toggle to hide completed items
+
+  #### AT-58 subtask AT-129
+  - Items are archived instead of deleted
+  - Archived items retain history and reason for archival
+  - Archived items can be restored by board admins
