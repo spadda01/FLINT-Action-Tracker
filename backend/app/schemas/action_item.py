@@ -7,6 +7,8 @@ from app.schemas.action_items import TargetValue
 class ActionOwner(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     isExternal: bool
+    # Links a staff owner to FLINT's employee records; free-text owners leave it empty.
+    employeeId: str | None = Field(default=None, max_length=100)
 
 
 class ActionItem(BaseModel):

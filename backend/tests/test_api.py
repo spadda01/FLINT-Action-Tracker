@@ -24,7 +24,7 @@ def test_get_employees():
     assert response.status_code == 200
 
     employees = response.json()
-    assert len(employees) == 3
+    assert len(employees) == 8
     assert employees[0]["id"] == "E001"
 
 

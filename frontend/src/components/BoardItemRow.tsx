@@ -3,6 +3,8 @@ import type { ActionItem } from '../services/actionItemService'
 import type { ItemInput, Section } from '../services/workspaceService'
 import type { PriorityLevel } from '../services/priorityService'
 import { displayTarget, targetFromInput, type TargetDisplay } from '../target'
+import EmployeePicker from './EmployeePicker'
+import InactiveBadge from './InactiveBadge'
 import StatusChooser from './StatusChooser'
 import WorkspaceDialog from './WorkspaceDialog'
 
@@ -16,6 +18,8 @@ type Props = {
   allItems: ActionItem[]
   priorities: PriorityLevel[]
   statuses: string[]
+  // Staff owners who have left FLINT, shown with an Inactive marker.
+  inactiveEmployeeIds: ReadonlySet<string>
   moving: boolean
   onUpdate: (update: Update) => Promise<void>
   onStatus: (status: string) => Promise<void>
@@ -28,14 +32,18 @@ type Props = {
 
 function FieldEditor({
   item,
+  boardId,
   field,
   priorities,
+  inactiveEmployeeIds,
   onSave,
   onClose,
 }: {
   item: ActionItem
+  boardId: string
   field: Field
   priorities: PriorityLevel[]
+  inactiveEmployeeIds: ReadonlySet<string>
   onSave: (update: Update) => Promise<void>
   onClose: () => void
 }) {
@@ -147,35 +155,46 @@ function FieldEditor({
           <>
             {owners.map((owner, index) => (
               <div className="max-owner-row" key={index}>
-                <input
-                  autoFocus={index === 0}
-                  aria-label={`Owner ${index + 1} for ${item.title}`}
-                  maxLength={200}
-                  value={owner.name}
-                  onChange={(e) =>
-                    setOwners((current) =>
-                      current.map((o, i) =>
-                        i === index ? { ...o, name: e.target.value } : o,
-                      ),
-                    )
-                  }
-                />
-                <label className="max-check">
-                  <input
-                    type="checkbox"
-                    checked={owner.isExternal}
-                    onChange={(e) =>
-                      setOwners((current) =>
-                        current.map((o, i) =>
-                          i === index
-                            ? { ...o, isExternal: e.target.checked }
-                            : o,
-                        ),
-                      )
-                    }
-                  />
-                  External
-                </label>
+                {owner.employeeId ? (
+                  // Name and type come from FLINT's employee records, so they
+                  // can't be edited here; the owner can only be removed.
+                  <span className="max-linked-owner">
+                    {owner.name}
+                    {inactiveEmployeeIds.has(owner.employeeId) && <InactiveBadge />}
+                  </span>
+                ) : (
+                  <>
+                    <input
+                      autoFocus={index === 0}
+                      aria-label={`Owner ${index + 1} for ${item.title}`}
+                      maxLength={200}
+                      value={owner.name}
+                      onChange={(e) =>
+                        setOwners((current) =>
+                          current.map((o, i) =>
+                            i === index ? { ...o, name: e.target.value } : o,
+                          ),
+                        )
+                      }
+                    />
+                    <label className="max-check">
+                      <input
+                        type="checkbox"
+                        checked={owner.isExternal}
+                        onChange={(e) =>
+                          setOwners((current) =>
+                            current.map((o, i) =>
+                              i === index
+                                ? { ...o, isExternal: e.target.checked }
+                                : o,
+                            ),
+                          )
+                        }
+                      />
+                      External
+                    </label>
+                  </>
+                )}
                 <button
                   type="button"
                   onClick={() =>
@@ -201,6 +220,17 @@ function FieldEditor({
             >
               + Add owner
             </button>
+            <EmployeePicker
+              boardId={boardId}
+              label={`Add FLINT staff to ${item.title}`}
+              excludeIds={owners.flatMap((o) => (o.employeeId ? [o.employeeId] : []))}
+              onSelect={(employee) =>
+                setOwners((current) => [
+                  ...current,
+                  { name: employee.name, isExternal: false, employeeId: employee.id },
+                ])
+              }
+            />
           </>
         ) : field === 'priority' ? (
           <label>
@@ -255,6 +285,7 @@ export default function BoardItemRow({
   allItems,
   priorities,
   statuses,
+  inactiveEmployeeIds,
   moving,
   onUpdate,
   onStatus,
@@ -288,8 +319,10 @@ export default function BoardItemRow({
       <FieldEditor
         key={field}
         item={item}
+        boardId={boardId}
         field={field}
         priorities={priorities}
+        inactiveEmployeeIds={inactiveEmployeeIds}
         onSave={onUpdate}
         onClose={() => closeEditor(field)}
       />
@@ -473,6 +506,9 @@ export default function BoardItemRow({
                   {index > 0 && ' / '}
                   {owner.name}
                   {owner.isExternal && ' (external)'}
+                  {owner.employeeId && inactiveEmployeeIds.has(owner.employeeId) && (
+                    <> <InactiveBadge /></>
+                  )}
                 </span>
               ))
             : 'Assign owners',

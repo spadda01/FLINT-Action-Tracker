@@ -28,6 +28,7 @@ import {
   type ItemInput,
   type Section,
 } from '../services/workspaceService'
+import { useInactiveEmployees } from '../services/useInactiveEmployees'
 import { dateFirstSorting, displayTarget } from '../target'
 import BoardItemDialog from './BoardItemDialog'
 import BoardItemRow from './BoardItemRow'
@@ -71,6 +72,7 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
   const [quickSaving, setQuickSaving] = useState<string[]>([])
   const quickInputs = useRef<Record<string, HTMLInputElement | null>>({})
   const movePending = useRef(false)
+  const inactiveEmployeeIds = useInactiveEmployees(boardId, items)
   useEffect(() => {
     let active = true
     setLoading(true)
@@ -547,6 +549,7 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
                         allItems={items}
                         priorities={priorities}
                         statuses={statuses}
+                        inactiveEmployeeIds={inactiveEmployeeIds}
                         moving={moving || orderingRestricted}
                         onUpdate={(changes) => update(item, changes)}
                         onStatus={(next) => status(item, next)}

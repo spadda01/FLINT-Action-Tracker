@@ -41,6 +41,7 @@ Board and item data use in-memory mock storage and reset on backend restart. Rec
 ### Board workspace controls
 
 - Click a title, owners, target, hard date, or priority to edit it. Save confirms the change; failed saves keep the draft and offer Retry. Text targets preserve whitespace and line breaks.
+- In the owners editor, **Add FLINT staff** searches the mock employee records by name and links the person to their record. People who have left FLINT are marked Inactive: they stay on items they already own but can't be newly assigned. Free-text owners still work for people outside FLINT.
 - Status and attention controls save to the shared item store. The add-item dialog saves all entered fields; title-only quick entry starts with Open status and Medium priority.
 - Drag a row's move handle to another row or an empty section. Keyboard users can open the handle's Move dialog, or use Alt+Up/Down to reorder within a section. Clear search, filters and sorting before moving items so the saved order is unambiguous.
 - Add, rename and order sections with the controls beside their headings. Quick entry is available in each section and keeps focus after Enter.
