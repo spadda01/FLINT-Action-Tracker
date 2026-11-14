@@ -155,6 +155,24 @@ describe('Assigning FLINT staff as owners', () => {
         expect(screen.getByRole('combobox', { name: /Add FLINT staff/ })).toBeInTheDocument()
     })
 
+    it('keeps a new owner when the connection drops while saving, and saves on retry', async () => {
+        patchResponse = () => {
+            patchResponse = null
+            throw new TypeError('Failed to fetch')
+        }
+        const picker = await openOwnerEditor()
+
+        await userEvent.type(picker, 'sar')
+        await userEvent.click(await screen.findByRole('option', { name: /Sarah Lee/ }))
+        await userEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+        expect(await screen.findByRole('alert')).toBeInTheDocument()
+        expect(screen.getByText('Sarah Lee', { selector: '.max-linked-owner' })).toBeInTheDocument()
+
+        await userEvent.click(screen.getByRole('button', { name: 'Retry save' }))
+        await waitFor(() => expect(ownersCell()).toHaveTextContent('Sarah Lee'))
+    })
+
     it('uses Escape in the search box without closing the editor', async () => {
         const picker = await openOwnerEditor()
 

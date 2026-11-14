@@ -139,6 +139,14 @@ def test_non_member_cannot_assign(client, monkeypatch):
     monkeypatch.setenv("MOCK_USER_ID", "user-2")
 
     assert set_owners(client, 1, [SARAH]).status_code == 404
+    monkeypatch.setenv("MOCK_USER_ID", "user-1")
+    assert SARAH not in item(client, 1)["owners"]
+
+
+def test_unknown_user_cannot_assign(client, monkeypatch):
+    monkeypatch.setenv("MOCK_USER_ID", "someone-else")
+
+    assert set_owners(client, 1, [SARAH]).status_code == 401
 
 
 # --- Sample data ---
