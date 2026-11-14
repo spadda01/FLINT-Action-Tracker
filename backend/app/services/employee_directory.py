@@ -42,3 +42,44 @@ class EmployeeDirectory:
             for employee in self.employees.get_employees()
             if employee["id"] in wanted
         ]
+
+    def check_owners(self, owners, current_owners=()):
+        """Checks staff owners against the employee records before they're saved.
+
+        Returns the owners with each linked person's name taken from the records.
+        Raises OwnerAssignmentError if an owner can't be assigned.
+        """
+        records = {employee["id"]: employee for employee in self.employees.get_employees()}
+        already_owners = {owner.employeeId for owner in current_owners if owner.employeeId}
+        seen = set()
+        checked = []
+
+        for owner in owners:
+            # Free-text owners aren't linked to anyone, so there's nothing to check.
+            if owner.employeeId is None:
+                checked.append(owner)
+                continue
+
+            if owner.isExternal:
+                raise OwnerAssignmentError("Only FLINT staff can be linked to an employee record.")
+
+            employee = records.get(owner.employeeId)
+            if employee is None:
+                raise OwnerAssignmentError("Choose a person from FLINT's employee records.")
+            if owner.employeeId in seen:
+                raise OwnerAssignmentError(f"{employee['name']} is already an owner of this item.")
+            seen.add(owner.employeeId)
+
+            # People who have left stay on items they already own, but can't be added.
+            if not employee.get("active", True) and owner.employeeId not in already_owners:
+                raise OwnerAssignmentError(f"{employee['name']} is inactive and can't be assigned.")
+
+            checked.append(owner.model_copy(update={"name": employee["name"]}))
+
+        return checked
+
+
+class OwnerAssignmentError(Exception):
+    def __init__(self, message):
+        super().__init__(message)
+        self.message = message

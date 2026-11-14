@@ -18,7 +18,8 @@ from app.adapters.mock_action_items import (
 from app.schemas.action_item import ActionItem, ActionItemCreate, ActionItemUpdate
 from app.adapters.board_sections import WORKSPACE_LOCK, ensure_section
 from app.api.workspace import router as workspace_router
-from app.api.employees import router as employees_router
+from app.api.employees import get_employee_directory, router as employees_router
+from app.services.employee_directory import EmployeeDirectory, OwnerAssignmentError
 from app.services.status_service import (
     ItemNotFoundError,
     StatusService,
@@ -159,6 +160,7 @@ def create_board_item(
     repository: BoardRepository = Depends(get_board_repository),
     service: BoardService = Depends(get_board_service),
     status_service: StatusService = Depends(get_status_service),
+    directory: EmployeeDirectory = Depends(get_employee_directory),
 ) -> ActionItem:
     require_board_access(board_id, user_id, repository, service)
 
@@ -174,6 +176,10 @@ def create_board_item(
             raise ValueError("Choose a status on this board.")
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
+    try:
+        new_item.owners = directory.check_owners(new_item.owners)
+    except OwnerAssignmentError as error:
+        raise HTTPException(status_code=422, detail=error.message) from error
     with WORKSPACE_LOCK:
         ensure_section(board_id, new_item.section)
         return create_mock_action_item(board_id, new_item)
@@ -188,6 +194,7 @@ def update_board_item_target(
     repository: BoardRepository = Depends(get_board_repository),
     service: BoardService = Depends(get_board_service),
     status_service: StatusService = Depends(get_status_service),
+    directory: EmployeeDirectory = Depends(get_employee_directory),
 ) -> ActionItem:
     # Verify board access before allowing an update.
     require_board_access(board_id, user_id, repository, service)
@@ -203,6 +210,13 @@ def update_board_item_target(
         item = next((item for item in get_mock_action_items(board_id) if item.id == item_id), None)
         if item is None:
             raise HTTPException(status_code=404, detail="Action item not found.")
+        # Checked against the current owners, so people who have since left
+        # can stay on this item but can't be newly added.
+        if update.owners is not None:
+            try:
+                update.owners = directory.check_owners(update.owners, item.owners)
+            except OwnerAssignmentError as error:
+                raise HTTPException(status_code=422, detail=error.message) from error
         if update.status is not None:
             try:
                 status_service.change_status(board_id, item_id, update.status, user_id)
