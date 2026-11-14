@@ -236,6 +236,29 @@ describe('EmployeePicker', () => {
         expect(screen.queryByRole('option', { name: /Maranda Lopez/ })).not.toBeInTheDocument()
     })
 
+    it('cannot pick from an older list while a new search is pending', async () => {
+        // "da" answers at once; the search for "sar" never finishes.
+        vi.stubGlobal(
+            'fetch',
+            vi.fn((url: string) =>
+                url.endsWith('search=da')
+                    ? Promise.resolve(respond([STAFF[1]]))
+                    : new Promise<Response>(() => {}),
+            ),
+        )
+        const { input, onSelect } = renderPicker()
+
+        await userEvent.type(input, 'da')
+        await screen.findByRole('option', { name: /Maranda Lopez/ })
+        await userEvent.clear(input)
+        await userEvent.type(input, 'sar')
+        await userEvent.keyboard('{ArrowDown}{Enter}')
+
+        expect(onSelect).not.toHaveBeenCalled()
+        expect(screen.queryByRole('option')).not.toBeInTheDocument()
+        expect(screen.getByText('Searching…')).toBeInTheDocument()
+    })
+
     it('uses a custom label', () => {
         stubSearch()
         render(<EmployeePicker boardId="project-1" label="Add an owner" onSelect={vi.fn()} />)

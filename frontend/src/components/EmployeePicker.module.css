@@ -27,12 +27,8 @@
     outline-offset: 2px;
 }
 
+/* Sits in the page flow rather than floating, so a scrolling table can't cut it off. */
 .popup {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0;
-    right: 0;
-    z-index: 10;
     padding: 6px;
     background-color: #fff;
     border: 1px solid #dce5eb;

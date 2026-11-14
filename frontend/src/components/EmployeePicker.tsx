@@ -19,8 +19,9 @@ type EmployeePickerProps = {
 type SearchState =
     | { kind: 'idle' }
     | { kind: 'loading' }
-    | { kind: 'done'; results: Employee[] }
-    | { kind: 'error'; message: string }
+    // Each result remembers the text it was searched for.
+    | { kind: 'done'; query: string; results: Employee[] }
+    | { kind: 'error'; query: string; message: string }
 
 function EmployeePicker({
     boardId,
@@ -42,8 +43,13 @@ function EmployeePicker({
     const query = text.trim()
     // A string key, so a new array with the same ids doesn't re-run the search.
     const excludeKey = excludeIds.join(',')
-    // An empty box means nothing to show, whatever the last search returned.
-    const search: SearchState = query ? lastSearch : { kind: 'idle' }
+    // Results only count for the exact text they were found for. While a newer
+    // search is pending, show it as searching, so Enter can't pick from an old list.
+    const search: SearchState = !query
+        ? { kind: 'idle' }
+        : (lastSearch.kind === 'done' || lastSearch.kind === 'error') && lastSearch.query === query
+          ? lastSearch
+          : { kind: 'loading' }
     const results = search.kind === 'done' ? search.results : []
 
     useEffect(() => {
@@ -53,12 +59,11 @@ function EmployeePicker({
         // so an older, slower response can't replace newer results.
         const controller = new AbortController()
         const timer = setTimeout(async () => {
-            setSearch({ kind: 'loading' })
             try {
                 const found = await searchEmployees(boardId, query, controller.signal)
                 const excluded = new Set(excludeKey.split(','))
                 const shown = found.filter((employee) => !excluded.has(employee.id))
-                setSearch({ kind: 'done', results: shown })
+                setSearch({ kind: 'done', query, results: shown })
                 setActiveIndex(-1)
                 setAnnouncement(
                     shown.length === 0
@@ -69,6 +74,7 @@ function EmployeePicker({
                 if (controller.signal.aborted) return
                 setSearch({
                     kind: 'error',
+                    query,
                     message: error instanceof Error ? error.message : 'Employee records couldn’t be loaded.',
                 })
             }
@@ -114,7 +120,11 @@ function EmployeePicker({
                 break
             case 'Escape':
                 // First Escape closes the list; a second one clears the text.
+                // Once the box is empty, Escape is left for the surrounding
+                // form, e.g. to close the owner editor.
+                if (!isOpen && !text) break
                 event.preventDefault()
+                event.stopPropagation()
                 if (isOpen) {
                     setIsOpen(false)
                 } else {
