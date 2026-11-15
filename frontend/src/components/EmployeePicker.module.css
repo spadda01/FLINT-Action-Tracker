@@ -1,0 +1,127 @@
+/* Styles are scoped to this component so they can't clash with the board's CSS. */
+.picker {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-width: 320px;
+    font-family: Avenir, 'Avenir Next', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+.label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #24323f;
+}
+
+.input {
+    padding: 8px 10px;
+    font: inherit;
+    border: 1px solid #c6d2dc;
+    border-radius: 6px;
+}
+
+.input:focus-visible,
+.retry:focus-visible {
+    outline: 2px solid #006098;
+    outline-offset: 2px;
+}
+
+/* Sits in the page flow rather than floating, so a scrolling table can't cut it off. */
+.popup {
+    padding: 6px;
+    background-color: #fff;
+    border: 1px solid #dce5eb;
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(20, 30, 40, 0.12);
+}
+
+.list {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    max-height: 280px;
+    overflow-y: auto;
+}
+
+.option {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.active {
+    background-color: #eef4f9;
+    box-shadow: inset 3px 0 0 #006098;
+}
+
+.inactive {
+    cursor: not-allowed;
+}
+
+.inactive .name {
+    color: #6b7680;
+}
+
+.name {
+    font-size: 14px;
+    color: #1d2a36;
+}
+
+.details {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #526579;
+}
+
+.tag {
+    padding: 1px 6px;
+    font-size: 11px;
+    color: #0b5a2a;
+    background-color: #e6f4ea;
+    border-radius: 4px;
+}
+
+.note {
+    margin: 0;
+    padding: 8px 10px;
+    font-size: 13px;
+    color: #526579;
+}
+
+.error {
+    margin: 0;
+    padding: 8px 10px;
+    font-size: 13px;
+    color: #a12a2a;
+}
+
+.retry {
+    padding: 0;
+    font: inherit;
+    color: #006098;
+    text-decoration: underline;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.visuallyHidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}

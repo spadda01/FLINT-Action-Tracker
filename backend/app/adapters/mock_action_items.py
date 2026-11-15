@@ -10,7 +10,7 @@ MOCK_ACTION_ITEMS = {
             priority="High",
             title="Review construction drawings",
             owners=[
-                {"name": "Austin", "isExternal": False},
+                {"name": "Austin Rivera", "isExternal": False, "employeeId": "E004"},
                 {"name": "Sarah", "isExternal": True},
             ],
             target="Before next meeting",
@@ -23,7 +23,11 @@ MOCK_ACTION_ITEMS = {
             section="Construction",
             priority="Medium",
             title="Confirm material delivery",
-            owners=[{"name": "James", "isExternal": False}],
+            owners=[
+                {"name": "James Ortiz", "isExternal": False, "employeeId": "E005"},
+                # Has since left FLINT, so shows as inactive.
+                {"name": "Dana Whitfield", "isExternal": False, "employeeId": "E008"},
+            ],
             target="ASAP",
             hardDate=None,
             status="Not Started",
