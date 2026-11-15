@@ -199,6 +199,18 @@
   text-decoration: line-through;
   color: #526579;
 }
+.max-archived-item {
+  padding: 12px 0;
+  border-bottom: 1px solid #dce5eb;
+}
+.max-archived-item h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 500;
+}
+.max-archived-item p {
+  margin: 6px 0;
+}
 .max-priority {
   display: inline-flex;
   flex-direction: column;

@@ -33,6 +33,16 @@ let sections: { id: string; name: string }[]
 let failPatch: boolean
 let failStatus: boolean
 let failMove: boolean
+let failArchive: boolean
+let failRestore: boolean
+let failArchivedLoad: boolean
+let canRestore: boolean
+let archivedItems: {
+  item: ActionItem
+  reason: string
+  archivedBy: string
+  archivedAt: string
+}[]
 let fetchMock: ReturnType<typeof vi.fn>
 
 beforeEach(() => {
@@ -44,6 +54,11 @@ beforeEach(() => {
   failPatch = false
   failStatus = false
   failMove = false
+  failArchive = false
+  failRestore = false
+  failArchivedLoad = false
+  canRestore = true
+  archivedItems = []
   Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
     configurable: true,
     value: function (this: HTMLDialogElement) {
@@ -103,10 +118,36 @@ beforeEach(() => {
       items.push(item)
       return Response.json(item, { status: 201 })
     }
+    if (path.endsWith('/items/archived')) {
+      if (failArchivedLoad) {
+        failArchivedLoad = false
+        return Response.json({ detail: 'Archive list unavailable.' }, { status: 503 })
+      }
+      return Response.json({ archivedItems, canRestore })
+    }
     if (path.endsWith('/items')) return Response.json(items)
     const id = Number(path.match(/\/items\/(\d+)/)?.[1])
+    if (path.endsWith('/restore')) {
+      if (failRestore) return Response.json({ detail: 'Restore failed.' }, { status: 500 })
+      const record = archivedItems.find((current) => current.item.id === id)
+      if (!record) return Response.json({}, { status: 404 })
+      archivedItems = archivedItems.filter((current) => current.item.id !== id)
+      items.push(record.item)
+      return Response.json(record.item)
+    }
     const item = items.find((i) => i.id === id)
     if (!item) return Response.json({}, { status: 404 })
+    if (path.endsWith('/archive')) {
+      if (failArchive) return Response.json({ detail: 'Archive failed.' }, { status: 500 })
+      archivedItems.push({
+        item: structuredClone(item),
+        reason: data.reason,
+        archivedBy: 'user-1',
+        archivedAt: '2026-11-13T10:00:00Z',
+      })
+      items = items.filter((current) => current.id !== id)
+      return Response.json(item)
+    }
     if (path.endsWith('/status')) {
       if (failStatus) return Response.json({}, { status: 500 })
       item.status = data.status
@@ -380,6 +421,130 @@ test('attention failure rolls back, preserves a retry action, and saves on retry
       screen.getByRole('checkbox', { name: 'Attention for Confirm equipment' }),
     ).not.toBeChecked(),
   )
+})
+
+test('completed items stay struck through and can be hidden from the view', async () => {
+  const user = userEvent.setup()
+  await openWorkspace()
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Change status for Confirm equipment, currently Open',
+    }),
+  )
+  await user.click(screen.getByRole('menuitemradio', { name: 'Complete' }))
+  expect(await screen.findByText('Status changed to Complete.')).toBeInTheDocument()
+  const completedRow = itemRow()
+  expect(completedRow).toHaveClass('max-complete')
+  expect(
+    within(completedRow).getByRole('button', {
+      name: 'Edit title for Confirm equipment',
+    }),
+  ).toHaveClass('max-title')
+
+  await user.click(screen.getByRole('button', { name: 'Filters' }))
+  const hideCompleted = screen.getByLabelText('Hide completed')
+  hideCompleted.focus()
+  await user.keyboard(' ')
+  expect(hideCompleted).toBeChecked()
+  await user.click(screen.getByRole('button', { name: 'Apply' }))
+  expect(
+    screen.queryByRole('button', {
+      name: 'Edit title for Confirm equipment',
+    }),
+  ).not.toBeInTheDocument()
+  expect(
+    screen.getByRole('button', { name: 'Edit title for Share notes' }),
+  ).toBeInTheDocument()
+})
+
+test('archives with a reason, retains the record and retries failed saves/restores', async () => {
+  const user = userEvent.setup()
+  await openWorkspace()
+  failArchive = true
+  await user.click(
+    screen.getByRole('button', { name: 'Archive Confirm equipment' }),
+  )
+  const reason = screen.getByLabelText('Reason for archiving')
+  expect(screen.getByRole('button', { name: 'Archive item' })).toBeDisabled()
+  await user.type(reason, 'Duplicate entry')
+  const archiveButton = screen.getByRole('button', { name: 'Archive item' })
+  archiveButton.focus()
+  await user.keyboard('{Enter}')
+  expect(await screen.findByRole('alert')).toHaveTextContent('Archive failed.')
+  expect(reason).toHaveValue('Duplicate entry')
+  expect(screen.getByRole('button', { name: 'Edit title for Confirm equipment' })).toBeInTheDocument()
+
+  failArchive = false
+  archiveButton.focus()
+  await user.keyboard('{Enter}')
+  expect(
+    screen.queryByRole('button', { name: 'Edit title for Confirm equipment' }),
+  ).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /delete/i })).not.toBeInTheDocument()
+
+  await user.click(screen.getByRole('button', { name: 'Archived items' }))
+  expect(await screen.findByText('Duplicate entry')).toBeInTheDocument()
+  failRestore = true
+  await user.click(screen.getByRole('button', { name: 'Restore' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Restore failed.')
+  failRestore = false
+  await user.click(screen.getByRole('button', { name: 'Restore' }))
+  expect(
+    await screen.findByRole('button', {
+      name: 'Edit title for Confirm equipment',
+    }),
+  ).toBeInTheDocument()
+})
+
+test('non-admin users can view retained archive details but not restore', async () => {
+  const user = userEvent.setup()
+  canRestore = false
+  archivedItems = [
+    {
+      item: structuredClone(seed[0]),
+      reason: 'Entered on the wrong board',
+      archivedBy: 'user-2',
+      archivedAt: '2026-11-13T10:00:00Z',
+    },
+  ]
+  await openWorkspace()
+  await user.click(screen.getByRole('button', { name: 'Archived items' }))
+  expect(await screen.findByText('Entered on the wrong board')).toBeInTheDocument()
+  expect(screen.getByText('Only a board admin can restore archived items.')).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Restore' })).not.toBeInTheDocument()
+})
+
+test('empty archived state can be retried after a load failure', async () => {
+  const user = userEvent.setup()
+  failArchivedLoad = true
+  await openWorkspace()
+  await user.click(screen.getByRole('button', { name: 'Archived items' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'Unable to load archived items (error 503).',
+  )
+  await user.click(
+    screen.getByRole('button', { name: 'Retry loading archived items' }),
+  )
+  expect(await screen.findByText('No archived items.')).toBeInTheDocument()
+})
+
+test('disconnected archive save keeps the reason and item for retry', async () => {
+  const user = userEvent.setup()
+  await openWorkspace()
+  await user.click(
+    screen.getByRole('button', { name: 'Archive Confirm equipment' }),
+  )
+  const reason = screen.getByLabelText('Reason for archiving')
+  await user.type(reason, 'Wrong board')
+  fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+  await user.click(screen.getByRole('button', { name: 'Archive item' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'The server cannot be reached.',
+  )
+  expect(reason).toHaveValue('Wrong board')
+  expect(
+    screen.getByRole('button', { name: 'Edit title for Confirm equipment' }),
+  ).toBeInTheDocument()
 })
 
 test('Tab reaches Filters and Add item; cancelled dialog does not create an item', async () => {

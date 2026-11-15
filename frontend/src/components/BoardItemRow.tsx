@@ -19,6 +19,7 @@ type Props = {
   moving: boolean
   onUpdate: (update: Update) => Promise<void>
   onStatus: (status: string) => Promise<void>
+  onArchive: (reason: string) => Promise<void>
   onMove: (sectionId: string, beforeId: number | null) => Promise<void>
   onDragOver: (event: DragEvent<HTMLTableRowElement>) => void
   onDrop: (event: DragEvent<HTMLTableRowElement>) => void
@@ -258,6 +259,7 @@ export default function BoardItemRow({
   moving,
   onUpdate,
   onStatus,
+  onArchive,
   onMove,
   onDragOver,
   onDrop,
@@ -266,6 +268,10 @@ export default function BoardItemRow({
 }: Props) {
   const [editing, setEditing] = useState<Field | null>(null)
   const [moveOpen, setMoveOpen] = useState(false)
+  const [archiveOpen, setArchiveOpen] = useState(false)
+  const [archiveReason, setArchiveReason] = useState('')
+  const [archiveError, setArchiveError] = useState('')
+  const [archiving, setArchiving] = useState(false)
   const currentSection = sections.find(
     (s) => s.name === (item.section.trim() || 'General'),
   )
@@ -334,6 +340,24 @@ export default function BoardItemRow({
           ? cause.message
           : 'Unable to move item. Try again.',
       )
+    }
+  }
+  async function archive(event: FormEvent) {
+    event.preventDefault()
+    const reason = archiveReason.trim()
+    if (!reason || archiving) return
+    setArchiving(true)
+    setArchiveError('')
+    try {
+      await onArchive(reason)
+      setArchiveOpen(false)
+      setArchiveReason('')
+    } catch (cause) {
+      setArchiveError(
+        cause instanceof Error ? cause.message : 'Unable to archive item. Try again.',
+      )
+    } finally {
+      setArchiving(false)
     }
   }
   const target = displayTarget(item.target)
@@ -531,6 +555,62 @@ export default function BoardItemRow({
           <button type="button" onClick={() => void attention(retryAttention)}>
             Retry attention
           </button>
+        )}
+        <button
+          type="button"
+          aria-label={`Archive ${item.title}`}
+          onClick={() => {
+            setArchiveReason('')
+            setArchiveError('')
+            setArchiveOpen(true)
+          }}
+        >
+          Archive
+        </button>
+        {archiveOpen && (
+          <WorkspaceDialog
+            title={`Archive ${item.title}`}
+            busy={archiving}
+            onClose={() => setArchiveOpen(false)}
+          >
+            <form className="max-form" onSubmit={(event) => void archive(event)}>
+              <p>
+                This item and its status history will be retained and can be
+                restored by a board admin.
+              </p>
+              <label>
+                Reason for archiving
+                <textarea
+                  autoFocus
+                  required
+                  maxLength={2000}
+                  value={archiveReason}
+                  onChange={(event) => setArchiveReason(event.target.value)}
+                />
+              </label>
+              {archiveError && (
+                <p role="alert" className="max-error">
+                  {archiveError}
+                </p>
+              )}
+              <div className="max-dialog-actions">
+                <button
+                  type="button"
+                  disabled={archiving}
+                  onClick={() => setArchiveOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="max-primary"
+                  type="submit"
+                  disabled={archiving || !archiveReason.trim()}
+                >
+                  {archiving ? 'Archiving…' : 'Archive item'}
+                </button>
+              </div>
+            </form>
+          </WorkspaceDialog>
         )}
       </td>
     </tr>
