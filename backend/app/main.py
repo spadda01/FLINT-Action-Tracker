@@ -38,6 +38,7 @@ from app.services.status_service import (
     StatusService,
     StatusValidationError,
 )
+from app.adapters.interfaces import CompanyAdapter
 from app.services.board_access import (
     MOCK_EMPLOYEE_IDS,
     can_open_created_board,
@@ -49,6 +50,56 @@ app = FastAPI(title="FLINT Action Tracker API")
 app.include_router(priorities_router)
 app.include_router(workspace_router)
 services = create_services()
+
+
+def get_company_adapter() -> CompanyAdapter:
+    # Override this dependency in tests or when a real adapter is configured.
+    return services["companies"]
+
+
+def validate_owner_organizations(
+    owners,
+    companies: CompanyAdapter,
+    existing_owners=None,
+) -> None:
+    """Preserve existing company links while validating new assignments."""
+    if not owners:
+        return
+
+    existing_links = {
+        (owner.name, owner.isExternal, owner.organizationId)
+        for owner in (existing_owners or [])
+        if owner.organizationId is not None
+    }
+
+    new_links = []
+
+    for owner in owners:
+        if owner.organizationId is None:
+            continue
+
+        if not owner.isExternal:
+            raise HTTPException(
+                status_code=422,
+                detail="Only external owners can be assigned an organization.",
+            )
+
+        link = (owner.name, owner.isExternal, owner.organizationId)
+
+        if link not in existing_links:
+            new_links.append(owner.organizationId)
+
+    if not new_links:
+        return
+
+    known = {company["id"] for company in companies.get_companies()}
+
+    for organization_id in new_links:
+        if organization_id not in known:
+            raise HTTPException(
+                status_code=422,
+                detail="Choose an organization from the FLINT list.",
+            )
 
 
 def require_mock_mode() -> None:
@@ -196,9 +247,11 @@ def create_board_item(
     repository: BoardRepository = Depends(get_board_repository),
     service: BoardService = Depends(get_board_service),
     status_service: StatusService = Depends(get_status_service),
+    companies: CompanyAdapter = Depends(get_company_adapter),
     directory: EmployeeDirectory = Depends(get_employee_directory),
 ) -> ActionItem:
     require_board_access(board_id, user_id, repository, service)
+    validate_owner_organizations(new_item.owners, companies)
 
     if not new_item.title.strip():
         raise HTTPException(
@@ -239,6 +292,7 @@ def update_board_item_target(
     repository: BoardRepository = Depends(get_board_repository),
     service: BoardService = Depends(get_board_service),
     status_service: StatusService = Depends(get_status_service),
+    companies: CompanyAdapter = Depends(get_company_adapter),
     directory: EmployeeDirectory = Depends(get_employee_directory),
 ) -> ActionItem:
     # Verify board access before allowing an update.
@@ -258,14 +312,20 @@ def update_board_item_target(
         )
         if item is None:
             raise HTTPException(status_code=404, detail="Action item not found.")
-        # Validate owner assignments before modifying the item.
+        # validate owner assignments before modifying the item
         if update.owners is not None:
             try:
                 update.owners = directory.check_owners(update.owners, item.owners)
             except OwnerAssignmentError as error:
                 raise HTTPException(status_code=422, detail=error.message) from error
 
-        # Capture the original values for item history.
+            validate_owner_organizations(
+                update.owners,
+                companies,
+                existing_owners=item.owners,
+            )
+
+        # capture the original values for item history
         before = item.model_dump(mode="json")
         if update.status is not None:
             try:
@@ -391,3 +451,8 @@ def get_groups():
 @app.get("/api/organizations", dependencies=[Depends(check_access)])
 def get_organizations():
     return services["organizations"].get_organizations()
+
+
+@app.get("/api/companies", dependencies=[Depends(check_access)])
+def get_companies(companies: CompanyAdapter = Depends(get_company_adapter)):
+    return companies.get_companies()

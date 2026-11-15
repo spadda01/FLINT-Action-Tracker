@@ -19,6 +19,7 @@ def test_get_projects():
     assert projects[0]["id"] == "P001"
     assert projects[1]["id"] == "P002"
 
+
 def test_get_employees():
     response = client.get("/api/employees")
     assert response.status_code == 200
@@ -36,11 +37,27 @@ def test_get_organizations():
     assert len(organizations) == 3
     assert organizations[0]["id"] == "ORG001"
 
-def test_unauthorized_access():
-    response = client.get(
-        "/api/projects",
-        headers={"X-Mock-Role": "unauthorized"}
-    )
 
+def test_unauthorized_access():
+    response = client.get("/api/projects", headers={"X-Mock-Role": "unauthorized"})
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Access denied"
+
+
+def test_companies_endpoint_access():
+    # existing mock viewer and admin roles may access companies
+    for role in ("viewer", "admin"):
+        response = client.get(
+            "/api/companies",
+            headers={"X-Mock-Role": role},
+        )
+        assert response.status_code == 200
+
+    # unsupported roles must be rejected
+    response = client.get(
+        "/api/companies",
+        headers={"X-Mock-Role": "unauthorized"},
+    )
     assert response.status_code == 403
     assert response.json()["detail"] == "Access denied"

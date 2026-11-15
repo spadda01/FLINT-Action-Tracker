@@ -7,9 +7,13 @@ import EmployeePicker from './EmployeePicker'
 import InactiveBadge from './InactiveBadge'
 import StatusChooser from './StatusChooser'
 import WorkspaceDialog from './WorkspaceDialog'
+import OrganizationSelect from './OrganizationSelect'
+import {
+  organizationName,
+  type OrganizationsState,
+} from '../services/organizationService'
 import './OwnerChips.css'
 import ItemHistory from './ItemHistory'
-
 
 type Field = 'title' | 'owners' | 'target' | 'priority' | 'hardDate'
 type Update = Partial<Omit<ItemInput, 'section'>>
@@ -21,6 +25,8 @@ type Props = {
   allItems: ActionItem[]
   priorities: PriorityLevel[]
   statuses: string[]
+  organizations: OrganizationsState
+  onRetryOrganizations: () => void
   // Staff who have left FLINT remain visible as inactive owners.
   inactiveEmployeeIds: ReadonlySet<string>
   moving: boolean
@@ -39,6 +45,8 @@ function FieldEditor({
   boardId,
   field,
   priorities,
+  organizations,
+  onRetryOrganizations,
   inactiveEmployeeIds,
   onSave,
   onClose,
@@ -47,6 +55,8 @@ function FieldEditor({
   boardId: string
   field: Field
   priorities: PriorityLevel[]
+  organizations: OrganizationsState
+  onRetryOrganizations: () => void
   inactiveEmployeeIds: ReadonlySet<string>
   onSave: (update: Update) => Promise<void>
   onClose: () => void
@@ -173,8 +183,7 @@ function FieldEditor({
             {owners.map((owner, index) => (
               <div className="max-owner-row" key={index}>
                 {owner.employeeId ? (
-                  // Name and type come from FLINT's employee records, so they
-                  // can't be edited here; the owner can only be removed.
+                  // Linked FLINT staff names are managed through employee records.
                   <span className="max-linked-owner">
                     {owner.name}
                     {inactiveEmployeeIds.has(owner.employeeId) && <InactiveBadge />}
@@ -202,7 +211,13 @@ function FieldEditor({
                           setOwners((current) =>
                             current.map((o, i) =>
                               i === index
-                                ? { ...o, isExternal: e.target.checked }
+                                ? {
+                                    ...o,
+                                    isExternal: e.target.checked,
+                                    organizationId: e.target.checked
+                                      ? o.organizationId
+                                      : null,
+                                  }
                                 : o,
                             ),
                           )
@@ -210,6 +225,21 @@ function FieldEditor({
                       />
                       External
                     </label>
+                    {owner.isExternal && (
+                      <OrganizationSelect
+                        label={`Organization for owner ${index + 1} of ${item.title}`}
+                        value={owner.organizationId}
+                        state={organizations}
+                        onRetry={onRetryOrganizations}
+                        onChange={(organizationId) =>
+                          setOwners((current) =>
+                            current.map((o, i) =>
+                              i === index ? { ...o, organizationId } : o,
+                            ),
+                          )
+                        }
+                      />
+                    )}
                   </>
                 )}
                 <button
@@ -249,7 +279,7 @@ function FieldEditor({
               onClick={() =>
                 setOwners((current) => [
                   ...current,
-                  { name: '', isExternal: false },
+                  { name: '', isExternal: false, organizationId: null },
                 ])
               }
             >
@@ -320,6 +350,8 @@ export default function BoardItemRow({
   allItems,
   priorities,
   statuses,
+  organizations,
+  onRetryOrganizations,
   inactiveEmployeeIds,
   moving,
   onUpdate,
@@ -363,6 +395,8 @@ export default function BoardItemRow({
         boardId={boardId}
         field={field}
         priorities={priorities}
+        organizations={organizations}
+        onRetryOrganizations={onRetryOrganizations}
         inactiveEmployeeIds={inactiveEmployeeIds}
         onSave={onUpdate}
         onClose={() => closeEditor(field)}
@@ -587,12 +621,25 @@ export default function BoardItemRow({
                       className={`owner-chip${owner.isExternal ? ' owner-chip-external' : ''}`}
                     >
                       {owner.name}
+
                       <span className="owner-chip-type">
                         {owner.isExternal ? 'External' : 'Staff'}
                       </span>
-                      {owner.employeeId && inactiveEmployeeIds.has(owner.employeeId) && (
-                        <InactiveBadge />
+
+                      {owner.isExternal && owner.organizationId && (
+                        <span className="max-organization-name">
+                          {' — '}
+                          {organizationName(
+                            organizations.organizations,
+                            owner.organizationId,
+                          )}
+                        </span>
                       )}
+
+                      {owner.employeeId &&
+                        inactiveEmployeeIds.has(owner.employeeId) && (
+                          <InactiveBadge />
+                        )}
                     </span>
                   ))}
                 </span>

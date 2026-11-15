@@ -8,7 +8,10 @@ export type ActionItem = {
     owners: {
         name: string
         isExternal: boolean
-        // Set when the owner is linked to a FLINT employee record.
+        // set when an external owner is linked to a company
+        organizationId?: string | null
+
+        // set when a staff owner is linked to a FLINT employee record
         employeeId?: string | null
     }[]
     target: Target | string

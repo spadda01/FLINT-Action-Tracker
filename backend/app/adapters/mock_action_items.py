@@ -11,7 +11,7 @@ MOCK_ACTION_ITEMS = {
             title="Review construction drawings",
             owners=[
                 {"name": "Austin Rivera", "isExternal": False, "employeeId": "E004"},
-                {"name": "Sarah", "isExternal": True},
+                {"name": "Sarah", "isExternal": True, "organizationId": "CO001"},
             ],
             target="Before next meeting",
             hardDate="2026-10-30",
@@ -52,11 +52,14 @@ def create_mock_action_item(
 
     # Generate an ID unique within the selected board.
     archived_items = MOCK_ARCHIVED_ACTION_ITEMS.get(board_id, [])
-    next_id = max(
-        [item.id for item in items]
-        + [record["item"].id for record in archived_items],
-        default=0,
-    ) + 1
+    next_id = (
+        max(
+            [item.id for item in items]
+            + [record["item"].id for record in archived_items],
+            default=0,
+        )
+        + 1
+    )
 
     created_item = ActionItem(
         id=next_id,

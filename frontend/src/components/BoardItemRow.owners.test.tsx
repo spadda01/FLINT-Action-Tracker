@@ -46,6 +46,8 @@ function setup() {
                     dropBefore={false}
                     inactiveEmployeeIds={new Set<string>()}
                     onArchive={async () => { }}
+                    organizations={{ status: 'ready', organizations: [] }}
+                    onRetryOrganizations={() => { }}
                 />
             </tbody>
         </table>,

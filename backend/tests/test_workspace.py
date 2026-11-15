@@ -88,7 +88,12 @@ def test_full_dialog_fields_and_inline_updates_survive_reads(workspace, index):
     saved = client.get(base + "/items").json()[0]
     assert saved["title"] == "Updated action"
     assert saved["owners"] == [
-        {"name": "Austin", "isExternal": False, "employeeId": None}
+        {
+            "name": "Austin",
+            "isExternal": False,
+            "organizationId": None,
+            "employeeId": None,
+        }
     ]
     assert saved["target"] == {"type": "date", "value": "2026-11-06"}
     assert saved["hardDate"] is None and saved["attention"] is False
@@ -253,6 +258,132 @@ def test_creation_and_inline_priority_use_same_configured_levels(
     assert updated.json()["priority"] == "Medium"
 
 
+def test_unrelated_item_update_works_without_company_service(workspace):
+    from app.main import get_company_adapter
+
+    client, boards = workspace
+    base = f"/api/boards/{boards[0]}"
+
+    item = client.post(
+        base + "/items",
+        json={"title": "Original title"},
+    ).json()
+
+    class UnavailableCompanyAdapter:
+        def get_companies(self):
+            raise RuntimeError("Company service unavailable")
+
+    # Simulate an unavailable company service during a title update.
+    app.dependency_overrides[get_company_adapter] = lambda: UnavailableCompanyAdapter()
+
+    response = client.patch(
+        base + f"/items/{item['id']}",
+        json={"title": "Updated title"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["title"] == "Updated title"
+
+
+def test_existing_company_link_survives_company_removal(workspace):
+    from app.main import get_company_adapter
+
+    client, boards = workspace
+    base = f"/api/boards/{boards[0]}"
+    companies = [{"id": "COMP001", "name": "Example Company"}]
+
+    class TestCompanyAdapter:
+        def get_companies(self):
+            return companies
+
+    app.dependency_overrides[get_company_adapter] = lambda: TestCompanyAdapter()
+    owner = {
+        "name": "Sarah",
+        "isExternal": True,
+        "organizationId": "COMP001",
+    }
+    created = client.post(
+        base + "/items",
+        json={"title": "Company assignment test", "owners": [owner]},
+    )
+    assert created.status_code == 201
+    item_id = created.json()["id"]
+    # simulate a company disappearing from the current company list
+    companies.clear()
+
+    updated = client.patch(
+        base + f"/items/{item_id}",
+        json={
+            "owners": [
+                owner,
+                {"name": "Taylor", "isExternal": True},
+            ]
+        },
+    )
+    assert updated.status_code == 200
+    assert updated.json()["owners"][0]["organizationId"] == "COMP001"
+
+    # new assignments to unknown companies must still be rejected
+    invalid = client.patch(
+        base + f"/items/{item_id}",
+        json={
+            "owners": [
+                {
+                    "name": "Taylor",
+                    "isExternal": True,
+                    "organizationId": "UNKNOWN",
+                }
+            ]
+        },
+    )
+    assert invalid.status_code == 422
+
+
+def test_link_existing_owner_preserves_information(workspace):
+    from app.main import get_company_adapter
+
+    client, boards = workspace
+    base = f"/api/boards/{boards[0]}"
+
+    class TestCompanyAdapter:
+        def get_companies(self):
+            return [{"id": "COMP001", "name": "Example Company"}]
+
+    app.dependency_overrides[get_company_adapter] = lambda: TestCompanyAdapter()
+
+    # create an action item with an existing free-text owner
+    created = client.post(
+        base + "/items",
+        json={
+            "title": "Review construction plans",
+            "owners": [{"name": "Sarah", "isExternal": True}],
+        },
+    )
+    assert created.status_code == 201
+    item_id = created.json()["id"]
+
+    # link the same owner to a company
+    updated = client.patch(
+        base + f"/items/{item_id}",
+        json={
+            "owners": [
+                {
+                    "name": "Sarah",
+                    "isExternal": True,
+                    "organizationId": "COMP001",
+                }
+            ]
+        },
+    )
+    assert updated.status_code == 200
+    owner = updated.json()["owners"][0]
+    assert owner["name"] == "Sarah"
+    assert owner["isExternal"] is True
+    assert owner["organizationId"] == "COMP001"
+    assert updated.json()["id"] == item_id
+    assert updated.json()["title"] == "Review construction plans"
+
+
 @pytest.mark.parametrize("index", [0, 1])
 def test_item_history_records_changes_and_ignores_unchanged_saves(workspace, index):
     client, boards = workspace
@@ -378,9 +509,24 @@ def test_owner_changes_preserve_order_types_and_saved_values(workspace, index):
     client, boards = workspace
     base = f"/api/boards/{boards[index]}"
 
-    staff = {"name": "Austin", "isExternal": False, "employeeId": None}
-    external = {"name": "Sarah", "isExternal": True, "employeeId": None}
-    added = {"name": "Taylor", "isExternal": True, "employeeId": None}
+    staff = {
+        "name": "Austin",
+        "isExternal": False,
+        "employeeId": None,
+        "organizationId": None,
+    }
+    external = {
+        "name": "Sarah",
+        "isExternal": True,
+        "employeeId": None,
+        "organizationId": None,
+    }
+    added = {
+        "name": "Taylor",
+        "isExternal": True,
+        "employeeId": None,
+        "organizationId": None,
+    }
 
     created = client.post(
         base + "/items",
