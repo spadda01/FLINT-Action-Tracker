@@ -331,6 +331,14 @@
 .max-table .max-owner-row {
   flex-wrap: wrap;
 }
+/* A staff owner linked to an employee record: name only, not editable. */
+.max-linked-owner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-height: 32px;
+}
 .max-dialog {
   border: 0;
   border-radius: 12px;
