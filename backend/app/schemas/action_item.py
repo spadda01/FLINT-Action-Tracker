@@ -7,6 +7,8 @@ from app.schemas.action_items import TargetValue
 class ActionOwner(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     isExternal: bool
+    # Links a staff owner to FLINT's employee records; free-text owners leave it empty.
+    employeeId: str | None = Field(default=None, max_length=100)
 
     @field_validator("name")
     @classmethod
@@ -88,3 +90,27 @@ class ActionItemUpdate(BaseModel):
         if value is None:
             raise ValueError("This field cannot be null.")
         return value
+
+
+class ArchiveItemRequest(BaseModel):
+    reason: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("reason")
+    @classmethod
+    def reason_not_blank(cls, value):
+        value = value.strip()
+        if not value:
+            raise ValueError("An archive reason is required.")
+        return value
+
+
+class ArchivedActionItem(BaseModel):
+    item: ActionItem
+    reason: str
+    archivedBy: str
+    archivedAt: str
+
+
+class ArchivedActionItemsResponse(BaseModel):
+    archivedItems: list[ArchivedActionItem]
+    canRestore: bool

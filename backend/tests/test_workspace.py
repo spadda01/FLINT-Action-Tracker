@@ -87,7 +87,9 @@ def test_full_dialog_fields_and_inline_updates_survive_reads(workspace, index):
     assert changed.status_code == 200
     saved = client.get(base + "/items").json()[0]
     assert saved["title"] == "Updated action"
-    assert saved["owners"] == [{"name": "Austin", "isExternal": False}]
+    assert saved["owners"] == [
+        {"name": "Austin", "isExternal": False, "employeeId": None}
+    ]
     assert saved["target"] == {"type": "date", "value": "2026-11-06"}
     assert saved["hardDate"] is None and saved["attention"] is False
 
@@ -376,9 +378,9 @@ def test_owner_changes_preserve_order_types_and_saved_values(workspace, index):
     client, boards = workspace
     base = f"/api/boards/{boards[index]}"
 
-    staff = {"name": "Austin", "isExternal": False}
-    external = {"name": "Sarah", "isExternal": True}
-    added = {"name": "Taylor", "isExternal": True}
+    staff = {"name": "Austin", "isExternal": False, "employeeId": None}
+    external = {"name": "Sarah", "isExternal": True, "employeeId": None}
+    added = {"name": "Taylor", "isExternal": True, "employeeId": None}
 
     created = client.post(
         base + "/items",

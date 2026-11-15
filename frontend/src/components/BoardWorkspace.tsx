@@ -6,7 +6,14 @@ import {
   type DragEvent,
   type FormEvent,
 } from 'react'
-import { loadActionItems, type ActionItem } from '../services/actionItemService'
+import {
+  archiveActionItem,
+  loadActionItems,
+  loadArchivedActionItems,
+  restoreActionItem,
+  type ActionItem,
+  type ArchivedActionItem,
+} from '../services/actionItemService'
 import { getPriorities, type PriorityLevel } from '../services/priorityService'
 import {
   changeItemStatus,
@@ -28,14 +35,25 @@ import {
   type ItemInput,
   type Section,
 } from '../services/workspaceService'
+import { useInactiveEmployees } from '../services/useInactiveEmployees'
 import { dateFirstSorting, displayTarget } from '../target'
 import BoardItemDialog from './BoardItemDialog'
 import BoardItemRow from './BoardItemRow'
 import WorkspaceDialog from './WorkspaceDialog'
 import './BoardWorkspace.css'
 
-type Filter = { attention: boolean; priority: string; sort: string }
-const EMPTY_FILTER: Filter = { attention: false, priority: '', sort: '' }
+type Filter = {
+  attention: boolean
+  hideCompleted: boolean
+  priority: string
+  sort: string
+}
+const EMPTY_FILTER: Filter = {
+  attention: false,
+  hideCompleted: false,
+  priority: '',
+  sort: '',
+}
 
 export default function BoardWorkspace({ boardId }: { boardId: string }) {
   const [items, setItems] = useState<ActionItem[]>([])
@@ -69,8 +87,17 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
   const [quickTitles, setQuickTitles] = useState<Record<string, string>>({})
   const [quickError, setQuickError] = useState<Record<string, string>>({})
   const [quickSaving, setQuickSaving] = useState<string[]>([])
+  const [archivedItems, setArchivedItems] = useState<ArchivedActionItem[]>([])
+  const [canRestore, setCanRestore] = useState(false)
+  const [archivedLoaded, setArchivedLoaded] = useState(false)
+  const [archivedLoading, setArchivedLoading] = useState(false)
+  const [archivedOpen, setArchivedOpen] = useState(false)
+  const [archivedLoadError, setArchivedLoadError] = useState('')
+  const [archiveError, setArchiveError] = useState('')
+  const [restoringIds, setRestoringIds] = useState<number[]>([])
   const quickInputs = useRef<Record<string, HTMLInputElement | null>>({})
   const movePending = useRef(false)
+  const inactiveEmployeeIds = useInactiveEmployees(boardId, items)
   useEffect(() => {
     let active = true
     setLoading(true)
@@ -117,6 +144,7 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
     const selected = items.filter(
       (item) =>
         (!filters.attention || item.attention) &&
+        (!filters.hideCompleted || item.status !== 'Complete') &&
         (!filters.priority || item.priority === filters.priority) &&
         (!query ||
           [
@@ -141,7 +169,11 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
     return selected
   }, [items, search, filters, priorities])
   const orderingRestricted =
-    !!search.trim() || filters.attention || !!filters.priority || !!filters.sort
+    !!search.trim() ||
+    filters.attention ||
+    filters.hideCompleted ||
+    !!filters.priority ||
+    !!filters.sort
 
   async function update(
     item: ActionItem,
@@ -179,6 +211,51 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
       ),
     )
     // Errors intentionally reach StatusChooser, which preserves its Retry state.
+  }
+  async function archive(itemId: number, reason: string) {
+    await archiveActionItem(boardId, itemId, reason)
+    setItems((current) => current.filter((item) => item.id !== itemId))
+    setArchivedLoaded(false)
+    setNotice('Item archived. Its history is retained.')
+  }
+  async function loadArchived() {
+    setArchivedLoading(true)
+    setArchivedLoadError('')
+    try {
+      const response = await loadArchivedActionItems(boardId)
+      setArchivedItems(response.archivedItems)
+      setCanRestore(response.canRestore)
+      setArchivedLoaded(true)
+    } catch (cause) {
+      setArchivedLoadError(
+        cause instanceof Error
+          ? cause.message
+          : 'Unable to load archived items. Try again.',
+      )
+    } finally {
+      setArchivedLoading(false)
+    }
+  }
+  async function restore(itemId: number) {
+    if (restoringIds.includes(itemId)) return
+    setRestoringIds((current) => [...current, itemId])
+    setArchiveError('')
+    try {
+      const restored = await restoreActionItem(boardId, itemId)
+      setItems((current) => [...current, restored])
+      setArchivedItems((current) =>
+        current.filter((record) => record.item.id !== itemId),
+      )
+      setNotice('Item restored.')
+    } catch (cause) {
+      setArchiveError(
+        cause instanceof Error
+          ? cause.message
+          : 'Unable to restore item. Try again.',
+      )
+    } finally {
+      setRestoringIds((current) => current.filter((id) => id !== itemId))
+    }
   }
   async function move(
     itemId: number,
@@ -377,7 +454,12 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
           }}
         >
           Filters
-          {filters.attention || filters.priority || filters.sort ? ' •' : ''}
+          {filters.attention ||
+          filters.hideCompleted ||
+          filters.priority ||
+          filters.sort
+            ? ' •'
+            : ''}
         </button>
         <button
           type="button"
@@ -385,6 +467,16 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
           onClick={() => setAdding(true)}
         >
           + Add item
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setArchiveError('')
+            setArchivedOpen(true)
+            if (!archivedLoaded) void loadArchived()
+          }}
+        >
+          Archived items
         </button>
       </div>
       {orderingRestricted && (
@@ -400,6 +492,64 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
             Clear view to move items
           </button>
         </p>
+      )}
+      {archivedOpen && (
+        <WorkspaceDialog
+          title="Archived items"
+          busy={archivedLoading}
+          onClose={() => setArchivedOpen(false)}
+        >
+          {archivedLoading ? (
+            <p role="status">Loading archived items…</p>
+          ) : archivedLoadError ? (
+            <>
+              <p role="alert" className="max-error">
+                {archivedLoadError}
+              </p>
+              <button type="button" onClick={() => void loadArchived()}>
+                Retry loading archived items
+              </button>
+            </>
+          ) : archivedItems.length === 0 ? (
+            <p>No archived items.</p>
+          ) : (
+            <>
+              {!canRestore && (
+                <p className="max-muted">
+                  Only a board admin can restore archived items.
+                </p>
+              )}
+              {archivedItems.map((record) => (
+                <article className="max-archived-item" key={record.item.id}>
+                  <h3>{record.item.title}</h3>
+                  <p>
+                    <strong>Reason:</strong> {record.reason}
+                  </p>
+                  <p className="max-muted">
+                    Archived by {record.archivedBy} on{' '}
+                    {new Date(record.archivedAt).toLocaleString()}
+                  </p>
+                  {canRestore && (
+                    <button
+                      type="button"
+                      disabled={restoringIds.includes(record.item.id)}
+                      onClick={() => void restore(record.item.id)}
+                    >
+                      {restoringIds.includes(record.item.id)
+                        ? 'Restoring…'
+                        : 'Restore'}
+                    </button>
+                  )}
+                </article>
+              ))}
+            </>
+          )}
+          {archiveError && (
+            <p role="alert" className="max-error">
+              {archiveError}
+            </p>
+          )}
+        </WorkspaceDialog>
       )}
       {moveError && (
         <p role="alert" className="max-error">
@@ -547,9 +697,11 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
                         allItems={items}
                         priorities={priorities}
                         statuses={statuses}
+                        inactiveEmployeeIds={inactiveEmployeeIds}
                         moving={moving || orderingRestricted}
                         onUpdate={(changes) => update(item, changes)}
                         onStatus={(next) => status(item, next)}
+                        onArchive={(reason) => archive(item.id, reason)}
                         onMove={(sid, before) => move(item.id, sid, before)}
                         onDragEnd={() => setDropBefore(null)}
                         dropBefore={dropBefore === item.id}
@@ -654,6 +806,22 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
               Attention items only
             </label>
             <p className="max-muted">Show items flagged for attention</p>
+            <label className="max-check">
+              <input
+                type="checkbox"
+                checked={filterDraft.hideCompleted}
+                onChange={(event) =>
+                  setFilterDraft((current) => ({
+                    ...current,
+                    hideCompleted: event.target.checked,
+                  }))
+                }
+              />
+              Hide completed
+            </label>
+            <p className="max-muted">
+              Keep completed items saved but hide them from this view
+            </p>
             <label>
               Priority
               <select

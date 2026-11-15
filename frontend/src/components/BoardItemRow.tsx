@@ -3,6 +3,8 @@ import type { ActionItem } from '../services/actionItemService'
 import type { ItemInput, Section } from '../services/workspaceService'
 import type { PriorityLevel } from '../services/priorityService'
 import { displayTarget, targetFromInput, type TargetDisplay } from '../target'
+import EmployeePicker from './EmployeePicker'
+import InactiveBadge from './InactiveBadge'
 import StatusChooser from './StatusChooser'
 import WorkspaceDialog from './WorkspaceDialog'
 import './OwnerChips.css'
@@ -12,35 +14,42 @@ import ItemHistory from './ItemHistory'
 type Field = 'title' | 'owners' | 'target' | 'priority' | 'hardDate'
 type Update = Partial<Omit<ItemInput, 'section'>>
 type Props = {
-    item: ActionItem
-    boardId: string
-    sections: Section[]
-    sectionItems: ActionItem[]
-    allItems: ActionItem[]
-    priorities: PriorityLevel[]
-    statuses: string[]
-    moving: boolean
-    onUpdate: (update: Update) => Promise<void>
-    onStatus: (status: string) => Promise<void>
-    onMove: (sectionId: string, beforeId: number | null) => Promise<void>
-    onDragOver: (event: DragEvent<HTMLTableRowElement>) => void
-    onDrop: (event: DragEvent<HTMLTableRowElement>) => void
-    onDragEnd: () => void
-    dropBefore: boolean
+  item: ActionItem
+  boardId: string
+  sections: Section[]
+  sectionItems: ActionItem[]
+  allItems: ActionItem[]
+  priorities: PriorityLevel[]
+  statuses: string[]
+  // Staff who have left FLINT remain visible as inactive owners.
+  inactiveEmployeeIds: ReadonlySet<string>
+  moving: boolean
+  onUpdate: (update: Update) => Promise<void>
+  onStatus: (status: string) => Promise<void>
+  onArchive: (reason: string) => Promise<void>
+  onMove: (sectionId: string, beforeId: number | null) => Promise<void>
+  onDragOver: (event: DragEvent<HTMLTableRowElement>) => void
+  onDrop: (event: DragEvent<HTMLTableRowElement>) => void
+  onDragEnd: () => void
+  dropBefore: boolean
 }
 
 function FieldEditor({
-    item,
-    field,
-    priorities,
-    onSave,
-    onClose,
+  item,
+  boardId,
+  field,
+  priorities,
+  inactiveEmployeeIds,
+  onSave,
+  onClose,
 }: {
-    item: ActionItem
-    field: Field
-    priorities: PriorityLevel[]
-    onSave: (update: Update) => Promise<void>
-    onClose: () => void
+  item: ActionItem
+  boardId: string
+  field: Field
+  priorities: PriorityLevel[]
+  inactiveEmployeeIds: ReadonlySet<string>
+  onSave: (update: Update) => Promise<void>
+  onClose: () => void
 }) {
     const [text, setText] = useState(
         field === 'title'
@@ -71,382 +80,420 @@ function FieldEditor({
         })
 
         requestAnimationFrame(() => {
-            document.getElementById(`owner-${item.id}-${nextIndex}`)?.focus()
+            document.getElementById(`owner-${item.id}-${nextIndex}-${nextIndex === 0 ? 'down' : 'up'}`)?.focus()
         })
     }
 
     async function save(event?: FormEvent) {
-        event?.preventDefault()
-        if (saving) return
-        setError('')
-        setSaving(true)
-        try {
-            if (field === 'owners' && owners.some((owner) => !owner.name.trim())) {
-                throw new Error('Enter a name for each owner or remove the empty row.')
-            }
-            const update: Update =
-                field === 'target'
-                    ? {
-                        target: targetFromInput(
-                            target.type,
-                            target.value,
-                        ) as TargetDisplay,
-                    }
-                    : field === 'owners'
-                        ? {
-                            owners: owners.map((owner) => ({
-                                ...owner,
-                                name: owner.name.trim(),
-                            })),
-                        }
-                        : field === 'hardDate'
-                            ? { hardDate: text || null }
-                            : { [field]: text }
-            await onSave(update)
-            onClose()
-        } catch (cause) {
-            setError(
-                cause instanceof Error ? cause.message : 'Unable to save. Try again.',
-            )
-        } finally {
-            setSaving(false)
+      event?.preventDefault()
+      if (saving) return
+      setError('')
+      setSaving(true)
+      try {
+        if (field === 'owners' && owners.some((owner) => !owner.name.trim())) {
+          throw new Error('Enter a name for each owner or remove the empty row.')
         }
+        const update: Update =
+          field === 'target'
+            ? { target: targetFromInput(target.type, target.value) as TargetDisplay }
+            : field === 'owners'
+              ? { owners: owners.map((owner) => ({ ...owner, name: owner.name.trim() })) }
+              : field === 'hardDate'
+                ? { hardDate: text || null }
+                : { [field]: text }
+        await onSave(update)
+        onClose()
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : 'Unable to save. Try again.')
+      } finally {
+        setSaving(false)
+      }
     }
-    return (
-        <form
-            className="max-cell-editor"
-            onSubmit={(event) => void save(event)}
-            onKeyDown={(event) => {
-                if (event.key === 'Escape' && !saving) {
-                    event.preventDefault()
-                    onClose()
+
+  return (
+    <form
+      className="max-cell-editor"
+      onSubmit={(event) => void save(event)}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape' && !saving) {
+          event.preventDefault()
+          onClose()
+        }
+        if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+          event.preventDefault()
+          void save()
+        }
+      }}
+    >
+      <fieldset disabled={saving}>
+        {field === 'target' ? (
+          <>
+            <label>
+              Target type for {item.title}
+              <select
+                aria-label={`Target type for ${item.title}`}
+                value={target.type}
+                onChange={(e) =>
+                  setTarget({
+                    type: e.target.value as TargetDisplay['type'],
+                    value: '',
+                  })
                 }
-                if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
-                    event.preventDefault()
-                    void save()
-                }
-            }}
-        >
-            <fieldset disabled={saving}>
-                {field === 'target' ? (
-                    <>
-                        <label>
-                            Target type for {item.title}
-                            <select
-                                aria-label={`Target type for ${item.title}`}
-                                value={target.type}
-                                onChange={(e) =>
-                                    setTarget({
-                                        type: e.target.value as TargetDisplay['type'],
-                                        value: '',
-                                    })
-                                }
-                            >
-                                <option value="text">Text</option>
-                                <option value="date">Date</option>
-                            </select>
-                        </label>
-                        <label>
-                            Target for {item.title}
-                            {target.type === 'date' ? (
-                                <input
-                                    autoFocus
-                                    type="date"
-                                    value={target.value}
-                                    onChange={(e) =>
-                                        setTarget({ ...target, value: e.target.value })
-                                    }
-                                />
-                            ) : (
-                                <textarea
-                                    autoFocus
-                                    value={target.value}
-                                    rows={2}
-                                    onChange={(e) =>
-                                        setTarget({ ...target, value: e.target.value })
-                                    }
-                                />
-                            )}
-                        </label>
-                        <small>Ctrl+Enter saves. Escape cancels.</small>
-                    </>
-                ) : field === 'owners' ? (
-                    <>
-                        {owners.map((owner, index) => (
-                            <div className="max-owner-row" key={index}>
-                                <input
-                                    autoFocus={index === 0}
-                                    aria-label={`Owner ${index + 1} for ${item.title}`}
-                                    id={`owner-${item.id}-${index}`}
-                                    maxLength={200}
-                                    value={owner.name}
-                                    onChange={(e) =>
-                                        setOwners((current) =>
-                                            current.map((o, i) =>
-                                                i === index ? { ...o, name: e.target.value } : o,
-                                            ),
-                                        )
-                                    }
-                                />
-                                <label className="max-check">
-                                    <input
-                                        type="checkbox"
-                                        checked={owner.isExternal}
-                                        onChange={(e) =>
-                                            setOwners((current) =>
-                                                current.map((o, i) =>
-                                                    i === index
-                                                        ? { ...o, isExternal: e.target.checked }
-                                                        : o,
-                                                ),
-                                            )
-                                        }
-                                    />
-                                    External
-                                </label>
-                                <button
-                                    type="button"
-                                    aria-label={`Move owner ${index + 1} up`}
-                                    disabled={index === 0}
-                                    onClick={() => moveOwner(index, -1)}
-                                >
-                                    ↑
-                                </button>
-                                <button
-                                    type="button"
-                                    aria-label={`Move owner ${index + 1} down`}
-                                    disabled={index === owners.length - 1}
-                                    onClick={() => moveOwner(index, 1)}
-                                >
-                                    ↓
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() =>
-                                        setOwners((current) =>
-                                            current.filter((_, i) => i !== index),
-                                        )
-                                    }
-                                    aria-label={`Remove owner ${index + 1}`}
-                                >
-                                    ×
-                                </button>
-                            </div>
-                        ))}
-                        <button
-                            type="button"
-                            autoFocus={!owners.length}
-                            onClick={() =>
-                                setOwners((current) => [
-                                    ...current,
-                                    { name: '', isExternal: false },
-                                ])
-                            }
-                        >
-                            + Add owner
-                        </button>
-                    </>
-                ) : field === 'priority' ? (
-                    <label>
-                        Priority for {item.title}
-                        <select
-                            aria-label={`Priority for ${item.title}`}
-                            autoFocus
-                            value={text}
-                            onChange={(e) => setText(e.target.value)}
-                        >
-                            {priorities.map((level) => (
-                                <option key={level.name}>{level.name}</option>
-                            ))}
-                        </select>
-                    </label>
+              >
+                <option value="text">Text</option>
+                <option value="date">Date</option>
+              </select>
+            </label>
+            <label>
+              Target for {item.title}
+              {target.type === 'date' ? (
+                <input
+                  autoFocus
+                  type="date"
+                  value={target.value}
+                  onChange={(e) =>
+                    setTarget({ ...target, value: e.target.value })
+                  }
+                />
+              ) : (
+                <textarea
+                  autoFocus
+                  value={target.value}
+                  rows={2}
+                  onChange={(e) =>
+                    setTarget({ ...target, value: e.target.value })
+                  }
+                />
+              )}
+            </label>
+            <small>Ctrl+Enter saves. Escape cancels.</small>
+          </>
+        ) : field === 'owners' ? (
+          <>
+            {owners.map((owner, index) => (
+              <div className="max-owner-row" key={index}>
+                {owner.employeeId ? (
+                  // Name and type come from FLINT's employee records, so they
+                  // can't be edited here; the owner can only be removed.
+                  <span className="max-linked-owner">
+                    {owner.name}
+                    {inactiveEmployeeIds.has(owner.employeeId) && <InactiveBadge />}
+                  </span>
                 ) : (
-                    <label>
-                        {field === 'title' ? 'Title' : 'Hard date'} for {item.title}
-                        <input
-                            autoFocus
-                            type={field === 'hardDate' ? 'date' : 'text'}
-                            value={text}
-                            required={field === 'title'}
-                            maxLength={field === 'title' ? 2000 : undefined}
-                            onChange={(e) => setText(e.target.value)}
-                        />
+                  <>
+                    <input
+                      autoFocus={index === 0}
+                      aria-label={`Owner ${index + 1} for ${item.title}`}
+                      maxLength={200}
+                      value={owner.name}
+                      onChange={(e) =>
+                        setOwners((current) =>
+                          current.map((o, i) =>
+                            i === index ? { ...o, name: e.target.value } : o,
+                          ),
+                        )
+                      }
+                    />
+                    <label className="max-check">
+                      <input
+                        type="checkbox"
+                        checked={owner.isExternal}
+                        onChange={(e) =>
+                          setOwners((current) =>
+                            current.map((o, i) =>
+                              i === index
+                                ? { ...o, isExternal: e.target.checked }
+                                : o,
+                            ),
+                          )
+                        }
+                      />
+                      External
                     </label>
+                  </>
                 )}
-            </fieldset>
-            {error && (
-                <p role="alert" className="max-error">
-                    {error}
-                </p>
-            )}
-            <div className="max-editor-actions">
-                <button type="submit" disabled={saving}>
-                    {saving ? 'Saving…' : error ? 'Retry save' : 'Save'}
+                <button
+                  id={`owner-${item.id}-${index}-up`}
+                  type="button"
+                  aria-label={`Move owner ${index + 1} up`}
+                  disabled={index === 0}
+                  onClick={() => moveOwner(index, -1)}
+                >
+                  ↑
                 </button>
-                <button type="button" disabled={saving} onClick={onClose}>
-                    Cancel
+                <button
+                  id={`owner-${item.id}-${index}-down`}
+                  type="button"
+                  aria-label={`Move owner ${index + 1} down`}
+                  disabled={index === owners.length - 1}
+                  onClick={() => moveOwner(index, 1)}
+                >
+                  ↓
                 </button>
-            </div>
-        </form>
-    )
+                <button
+                  type="button"
+                  onClick={() =>
+                    setOwners((current) =>
+                      current.filter((_, i) => i !== index),
+                    )
+                  }
+                  aria-label={`Remove owner ${index + 1}`}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              autoFocus={!owners.length}
+              onClick={() =>
+                setOwners((current) => [
+                  ...current,
+                  { name: '', isExternal: false },
+                ])
+              }
+            >
+              + Add owner
+            </button>
+            <EmployeePicker
+              boardId={boardId}
+              label={`Add FLINT staff to ${item.title}`}
+              excludeIds={owners.flatMap((o) => (o.employeeId ? [o.employeeId] : []))}
+              onSelect={(employee) =>
+                setOwners((current) => [
+                  ...current,
+                  { name: employee.name, isExternal: false, employeeId: employee.id },
+                ])
+              }
+            />
+          </>
+        ) : field === 'priority' ? (
+          <label>
+            Priority for {item.title}
+            <select
+              aria-label={`Priority for ${item.title}`}
+              autoFocus
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+            >
+              {priorities.map((level) => (
+                <option key={level.name}>{level.name}</option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <label>
+            {field === 'title' ? 'Title' : 'Hard date'} for {item.title}
+            <input
+              autoFocus
+              type={field === 'hardDate' ? 'date' : 'text'}
+              value={text}
+              required={field === 'title'}
+              maxLength={field === 'title' ? 2000 : undefined}
+              onChange={(e) => setText(e.target.value)}
+            />
+          </label>
+        )}
+      </fieldset>
+      {error && (
+        <p role="alert" className="max-error">
+          {error}
+        </p>
+      )}
+      <div className="max-editor-actions">
+        <button type="submit" disabled={saving}>
+          {saving ? 'Saving…' : error ? 'Retry save' : 'Save'}
+        </button>
+        <button type="button" disabled={saving} onClick={onClose}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  )
 }
 
 export default function BoardItemRow({
-    item,
-    boardId,
-    sections,
-    sectionItems,
-    allItems,
-    priorities,
-    statuses,
-    moving,
-    onUpdate,
-    onStatus,
-    onMove,
-    onDragOver,
-    onDrop,
-    onDragEnd,
-    dropBefore,
+  item,
+  boardId,
+  sections,
+  sectionItems,
+  allItems,
+  priorities,
+  statuses,
+  inactiveEmployeeIds,
+  moving,
+  onUpdate,
+  onStatus,
+  onArchive,
+  onMove,
+  onDragOver,
+  onDrop,
+  onDragEnd,
+  dropBefore,
 }: Props) {
-    const [editing, setEditing] = useState<Field | null>(null)
-    const [moveOpen, setMoveOpen] = useState(false)
-    const [historyOpen, setHistoryOpen] = useState(false)
-    const currentSection = sections.find(
-        (s) => s.name === (item.section.trim() || 'General'),
+  const [editing, setEditing] = useState<Field | null>(null)
+  const [moveOpen, setMoveOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [archiveOpen, setArchiveOpen] = useState(false)
+  const [archiveReason, setArchiveReason] = useState('')
+  const [archiveError, setArchiveError] = useState('')
+  const [archiving, setArchiving] = useState(false)
+  const currentSection = sections.find(
+    (s) => s.name === (item.section.trim() || 'General'),
+  )
+  const [destination, setDestination] = useState(currentSection?.id ?? '')
+  const [before, setBefore] = useState('')
+  const [error, setError] = useState('')
+  const [savingAttention, setSavingAttention] = useState(false)
+  const [pendingAttention, setPendingAttention] = useState<boolean | null>(null)
+  const [retryAttention, setRetryAttention] = useState<boolean | null>(null)
+  const moveButton = useRef<HTMLButtonElement>(null)
+  const currentIndex = sectionItems.findIndex((entry) => entry.id === item.id)
+  function closeEditor(field: Field) {
+    setEditing(null)
+    requestAnimationFrame(() =>
+      document.getElementById(`edit-${item.id}-${field}`)?.focus(),
     )
-    const [destination, setDestination] = useState(currentSection?.id ?? '')
-    const [before, setBefore] = useState('')
-    const [error, setError] = useState('')
-    const [savingAttention, setSavingAttention] = useState(false)
-    const [pendingAttention, setPendingAttention] = useState<boolean | null>(null)
-    const [retryAttention, setRetryAttention] = useState<boolean | null>(null)
-    const moveButton = useRef<HTMLButtonElement>(null)
-    const currentIndex = sectionItems.findIndex((entry) => entry.id === item.id)
-    function closeEditor(field: Field) {
-        setEditing(null)
-        requestAnimationFrame(() =>
-            document.getElementById(`edit-${item.id}-${field}`)?.focus(),
-        )
+  }
+  function cell(field: Field, content: React.ReactNode) {
+    return editing === field ? (
+      <FieldEditor
+        key={field}
+        item={item}
+        boardId={boardId}
+        field={field}
+        priorities={priorities}
+        inactiveEmployeeIds={inactiveEmployeeIds}
+        onSave={onUpdate}
+        onClose={() => closeEditor(field)}
+      />
+    ) : (
+      <button
+        id={`edit-${item.id}-${field}`}
+        type="button"
+        className={`max-cell-button max-${field === 'priority' ? 'priority-button' : field}`}
+        aria-label={`Edit ${field === 'hardDate' ? 'hard date' : field} for ${item.title}`}
+        onClick={() => setEditing(field)}
+      >
+        {content}
+      </button>
+    )
+  }
+  async function attention(value: boolean) {
+    setSavingAttention(true)
+    setPendingAttention(value)
+    setError('')
+    setRetryAttention(null)
+    try {
+      await onUpdate({ attention: value })
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : 'Unable to save attention.',
+      )
+      setRetryAttention(value)
+    } finally {
+      setSavingAttention(false)
+      setPendingAttention(null)
     }
-    function cell(field: Field, content: React.ReactNode) {
-        return editing === field ? (
-            <FieldEditor
-                key={field}
-                item={item}
-                field={field}
-                priorities={priorities}
-                onSave={onUpdate}
-                onClose={() => closeEditor(field)}
-            />
-        ) : (
-            <button
-                id={`edit-${item.id}-${field}`}
-                type="button"
-                className={`max-cell-button max-${field === 'priority' ? 'priority-button' : field}`}
-                aria-label={`Edit ${field === 'hardDate' ? 'hard date' : field} for ${item.title}`}
-                onClick={() => setEditing(field)}
-            >
-                {content}
-            </button>
-        )
+  }
+  async function move(sectionId: string, beforeId: number | null) {
+    setError('')
+    try {
+      await onMove(sectionId, beforeId)
+      setMoveOpen(false)
+      requestAnimationFrame(() => moveButton.current?.focus())
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Unable to move item. Try again.',
+      )
     }
-    async function attention(value: boolean) {
-        setSavingAttention(true)
-        setPendingAttention(value)
-        setError('')
-        setRetryAttention(null)
-        try {
-            await onUpdate({ attention: value })
-        } catch (cause) {
-            setError(
-                cause instanceof Error ? cause.message : 'Unable to save attention.',
+  }
+  async function archive(event: FormEvent) {
+    event.preventDefault()
+    const reason = archiveReason.trim()
+    if (!reason || archiving) return
+    setArchiving(true)
+    setArchiveError('')
+    try {
+      await onArchive(reason)
+      setArchiveOpen(false)
+      setArchiveReason('')
+    } catch (cause) {
+      setArchiveError(
+        cause instanceof Error ? cause.message : 'Unable to archive item. Try again.',
+      )
+    } finally {
+      setArchiving(false)
+    }
+  }
+  const target = displayTarget(item.target)
+  return (
+    <tr
+      className={[
+        item.status === 'Complete' ? 'max-complete' : '',
+        dropBefore ? 'max-drop-before' : '',
+      ].join(' ')}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+    >
+      <td className="max-handle-cell">
+        <button
+          ref={moveButton}
+          type="button"
+          className="max-drag-handle"
+          draggable={!moving && !editing}
+          aria-label={`Move ${item.title}`}
+          title="Move item. Alt+Up or Alt+Down reorders within its section."
+          disabled={moving}
+          onClick={() => {
+            setDestination(currentSection?.id ?? '')
+            setBefore('')
+            setError('')
+            setMoveOpen(true)
+          }}
+          onDragStart={(event) => {
+            event.dataTransfer.effectAllowed = 'move'
+            event.dataTransfer.setData(
+              'application/x-flint-item',
+              JSON.stringify({ boardId, itemId: item.id }),
             )
-            setRetryAttention(value)
-        } finally {
-            setSavingAttention(false)
-            setPendingAttention(null)
-        }
-    }
-    async function move(sectionId: string, beforeId: number | null) {
-        setError('')
-        try {
-            await onMove(sectionId, beforeId)
-            setMoveOpen(false)
-            requestAnimationFrame(() => moveButton.current?.focus())
-        } catch (cause) {
-            setError(
-                cause instanceof Error
-                    ? cause.message
-                    : 'Unable to move item. Try again.',
-            )
-        }
-    }
-    const target = displayTarget(item.target)
-    return (
-        <tr
-            className={[
-                item.status === 'Complete' ? 'max-complete' : '',
-                dropBefore ? 'max-drop-before' : '',
-            ].join(' ')}
-            onDragOver={onDragOver}
-            onDrop={onDrop}
+          }}
+          onDragEnd={onDragEnd}
+          onKeyDown={(event) => {
+            if (!event.altKey || !currentSection || moving) return
+            if (event.key === 'ArrowUp' && currentIndex > 0) {
+              event.preventDefault()
+              void move(currentSection.id, sectionItems[currentIndex - 1].id)
+            }
+            if (
+              event.key === 'ArrowDown' &&
+              currentIndex < sectionItems.length - 1
+            ) {
+              event.preventDefault()
+              void move(
+                currentSection.id,
+                sectionItems[currentIndex + 2]?.id ?? null,
+              )
+            }
+          }}
         >
-            <td className="max-handle-cell">
-                <button
-                    ref={moveButton}
-                    type="button"
-                    className="max-drag-handle"
-                    draggable={!moving && !editing}
-                    aria-label={`Move ${item.title}`}
-                    title="Move item. Alt+Up or Alt+Down reorders within its section."
-                    disabled={moving}
-                    onClick={() => {
-                        setDestination(currentSection?.id ?? '')
-                        setBefore('')
-                        setError('')
-                        setMoveOpen(true)
-                    }}
-                    onDragStart={(event) => {
-                        event.dataTransfer.effectAllowed = 'move'
-                        event.dataTransfer.setData(
-                            'application/x-flint-item',
-                            JSON.stringify({ boardId, itemId: item.id }),
-                        )
-                    }}
-                    onDragEnd={onDragEnd}
-                    onKeyDown={(event) => {
-                        if (!event.altKey || !currentSection || moving) return
-                        if (event.key === 'ArrowUp' && currentIndex > 0) {
-                            event.preventDefault()
-                            void move(currentSection.id, sectionItems[currentIndex - 1].id)
-                        }
-                        if (
-                            event.key === 'ArrowDown' &&
-                            currentIndex < sectionItems.length - 1
-                        ) {
-                            event.preventDefault()
-                            void move(
-                                currentSection.id,
-                                sectionItems[currentIndex + 2]?.id ?? null,
-                            )
-                        }
-                    }}
-                >
-                    ⠿
-                </button>
-                {moveOpen && (
-                    <WorkspaceDialog
-                        title={`Move ${item.title}`}
-                        busy={moving}
-                        onClose={() => setMoveOpen(false)}
-                    >
-                        <form
-                            className="max-form"
-                            onSubmit={(event) => {
-                                event.preventDefault()
-                                void move(destination, before ? Number(before) : null)
-                            }}
-                        >
+          ⠿
+        </button>
+        {moveOpen && (
+          <WorkspaceDialog
+            title={`Move ${item.title}`}
+            busy={moving}
+            onClose={() => setMoveOpen(false)}
+          >
+            <form
+              className="max-form"
+              onSubmit={(event) => {
+                event.preventDefault()
+                void move(destination, before ? Number(before) : null)
+              }}
+            >
                             <label>
                                 Destination section
                                 <select
@@ -508,104 +555,162 @@ export default function BoardItemRow({
                     </WorkspaceDialog>
                 )}
             </td>
-            <td className="max-title-cell">
-                {cell('title', item.title)}
-                <button
-                    type="button"
-                    className="item-history-button"
-                    aria-label={`View history for ${item.title}`}
-                    aria-haspopup="dialog"
-                    onClick={() => setHistoryOpen(true)}
-                >
-                    History
-                </button>
-
-                {historyOpen && (
-                    <WorkspaceDialog
-                        title={`History: ${item.title}`}
-                        onClose={() => setHistoryOpen(false)}
-                    >
-                        <ItemHistory boardId={boardId} itemId={item.id} />
-                    </WorkspaceDialog>
-                )}
-            </td>
-            <td>
-                {cell(
-                    'owners',
-                    item.owners.length
-                        ? (
-                            <span className="owner-chips">
-                                {item.owners.map((owner, index) => (
-                                    <span
-                                        key={index}
-                                        className={`owner-chip${owner.isExternal ? ' owner-chip-external' : ''}`}
-                                    >
-                                        {owner.name}
-                                        <span className="owner-chip-type">
-                                            {owner.isExternal ? 'External' : 'Staff'}
-                                        </span>
-                                    </span>
-                                ))}
-                            </span>
-                        )
-                        : 'Assign owners',
-                )}
-            </td>
-            <td>
-                {cell(
-                    'target',
-                    <span className="max-target-text">
-                        {target.value || 'Set target'}
-                    </span>,
-                )}
-                {cell(
-                    'hardDate',
-                    item.hardDate ? (
-                        <small>Hard date: {item.hardDate}</small>
-                    ) : (
-                        <small>+ Hard date</small>
-                    ),
-                )}
-            </td>
-            <td>
-                <StatusChooser
-                    itemTitle={item.title}
-                    status={item.status}
-                    statuses={statuses}
-                    onChange={onStatus}
-                />
-            </td>
-            <td>
-                {cell(
-                    'priority',
+      <td className="max-title-cell">
+        {cell('title', item.title)}
+        <button
+          type="button"
+          className="item-history-button"
+          aria-label={`View history for ${item.title}`}
+          aria-haspopup="dialog"
+          onClick={() => setHistoryOpen(true)}
+        >
+          History
+        </button>
+        {historyOpen && (
+          <WorkspaceDialog
+            title={`History: ${item.title}`}
+            onClose={() => setHistoryOpen(false)}
+          >
+            <ItemHistory boardId={boardId} itemId={item.id} />
+          </WorkspaceDialog>
+        )}
+      </td>
+      <td>
+        {cell(
+          'owners',
+          item.owners.length
+            ? (
+                <span className="owner-chips">
+                  {item.owners.map((owner, index) => (
                     <span
-                        className={`max-priority max-priority-${item.priority.toLowerCase()}`}
+                      key={index}
+                      className={`owner-chip${owner.isExternal ? ' owner-chip-external' : ''}`}
                     >
-                        <span aria-hidden="true" />
-                        {item.priority}
-                    </span>,
-                )}
-            </td>
-            <td>
-                <input
-                    className="max-attention"
-                    type="checkbox"
-                    checked={pendingAttention ?? item.attention}
-                    disabled={savingAttention}
-                    onChange={(e) => void attention(e.target.checked)}
-                    aria-label={`Attention for ${item.title}`}
+                      {owner.name}
+                      <span className="owner-chip-type">
+                        {owner.isExternal ? 'External' : 'Staff'}
+                      </span>
+                      {owner.employeeId && inactiveEmployeeIds.has(owner.employeeId) && (
+                        <InactiveBadge />
+                      )}
+                    </span>
+                  ))}
+                </span>
+              )
+            : 'Assign owners',
+        )}
+      </td>
+      <td>
+        {cell(
+          'target',
+          <span className="max-target-text">
+            {target.value || 'Set target'}
+          </span>,
+        )}
+        {cell(
+          'hardDate',
+          item.hardDate ? (
+            <small>Hard date: {item.hardDate}</small>
+          ) : (
+            <small>+ Hard date</small>
+          ),
+        )}
+      </td>
+      <td>
+        <StatusChooser
+          itemTitle={item.title}
+          status={item.status}
+          statuses={statuses}
+          onChange={onStatus}
+        />
+      </td>
+      <td>
+        {cell(
+          'priority',
+          <span
+            className={`max-priority max-priority-${item.priority.toLowerCase()}`}
+          >
+            <span aria-hidden="true" />
+            {item.priority}
+          </span>,
+        )}
+      </td>
+      <td>
+        <input
+          className="max-attention"
+          type="checkbox"
+          checked={pendingAttention ?? item.attention}
+          disabled={savingAttention}
+          onChange={(e) => void attention(e.target.checked)}
+          aria-label={`Attention for ${item.title}`}
+        />
+        {!moveOpen && error && (
+          <p role="alert" className="max-error">
+            {error}
+          </p>
+        )}
+        {retryAttention !== null && (
+          <button type="button" onClick={() => void attention(retryAttention)}>
+            Retry attention
+          </button>
+        )}
+        <button
+          type="button"
+          aria-label={`Archive ${item.title}`}
+          onClick={() => {
+            setArchiveReason('')
+            setArchiveError('')
+            setArchiveOpen(true)
+          }}
+        >
+          Archive
+        </button>
+        {archiveOpen && (
+          <WorkspaceDialog
+            title={`Archive ${item.title}`}
+            busy={archiving}
+            onClose={() => setArchiveOpen(false)}
+          >
+            <form className="max-form" onSubmit={(event) => void archive(event)}>
+              <p>
+                This item and its status history will be retained and can be
+                restored by a board admin.
+              </p>
+              <label>
+                Reason for archiving
+                <textarea
+                  autoFocus
+                  required
+                  maxLength={2000}
+                  value={archiveReason}
+                  onChange={(event) => setArchiveReason(event.target.value)}
                 />
-                {!moveOpen && error && (
-                    <p role="alert" className="max-error">
-                        {error}
-                    </p>
-                )}
-                {retryAttention !== null && (
-                    <button type="button" onClick={() => void attention(retryAttention)}>
-                        Retry attention
-                    </button>
-                )}
-            </td>
-        </tr >
-    )
+              </label>
+              {archiveError && (
+                <p role="alert" className="max-error">
+                  {archiveError}
+                </p>
+              )}
+              <div className="max-dialog-actions">
+                <button
+                  type="button"
+                  disabled={archiving}
+                  onClick={() => setArchiveOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="max-primary"
+                  type="submit"
+                  disabled={archiving || !archiveReason.trim()}
+                >
+                  {archiving ? 'Archiving…' : 'Archive item'}
+                </button>
+              </div>
+            </form>
+          </WorkspaceDialog>
+        )}
+      </td>
+    </tr>
+  )
 }
