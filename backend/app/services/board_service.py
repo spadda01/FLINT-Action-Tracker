@@ -17,17 +17,17 @@ class BoardService:
         self.employees = employees
         self.groups = groups
 
-    def create_team_board(self, data):
-        return self._create_board(data, "Team")
+    def create_team_board(self, data, creator_id=None):
+        return self._create_board(data, "Team", creator_id)
 
-    def create_project_board(self, data, projects):
+    def create_project_board(self, data, projects, creator_id=None):
         if data.projectId is not None and data.projectId not in {
             str(project["id"]) for project in projects
         }:
             raise BoardValidationError({"projectId": "Select a known project or no project."})
-        return self._create_board(data, "Project")
+        return self._create_board(data, "Project", creator_id)
 
-    def _create_board(self, data, board_type):
+    def _create_board(self, data, board_type, creator_id=None):
         errors = {}
 
         name = data.name.strip()
@@ -60,6 +60,7 @@ class BoardService:
             "members": members,
             "egnyteFolderUrl": egnyte_url,
             "createdAt": datetime.now(timezone.utc).isoformat(),
+            "adminUserIds": [creator_id] if creator_id else [],
         })
 
     def get_board(self, board_id):

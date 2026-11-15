@@ -10,7 +10,7 @@ MOCK_ACTION_ITEMS = {
             priority="High",
             title="Review construction drawings",
             owners=[
-                {"name": "Austin", "isExternal": False},
+                {"name": "Austin Rivera", "isExternal": False, "employeeId": "E004"},
                 {"name": "Sarah", "isExternal": True, "organizationId": "CO001"},
             ],
             target="Before next meeting",
@@ -23,7 +23,11 @@ MOCK_ACTION_ITEMS = {
             section="Construction",
             priority="Medium",
             title="Confirm material delivery",
-            owners=[{"name": "James", "isExternal": False}],
+            owners=[
+                {"name": "James Ortiz", "isExternal": False, "employeeId": "E005"},
+                # Has since left FLINT, so shows as inactive.
+                {"name": "Dana Whitfield", "isExternal": False, "employeeId": "E008"},
+            ],
             target="ASAP",
             hardDate=None,
             status="Not Started",
@@ -31,6 +35,7 @@ MOCK_ACTION_ITEMS = {
         ),
     ],
 }
+MOCK_ARCHIVED_ACTION_ITEMS: dict[str, list[dict]] = {}
 
 
 def get_mock_action_items(board_id: str) -> list[ActionItem]:
@@ -46,7 +51,15 @@ def create_mock_action_item(
     items = MOCK_ACTION_ITEMS.setdefault(board_id, [])
 
     # Generate an ID unique within the selected board.
-    next_id = max((item.id for item in items), default=0) + 1
+    archived_items = MOCK_ARCHIVED_ACTION_ITEMS.get(board_id, [])
+    next_id = (
+        max(
+            [item.id for item in items]
+            + [record["item"].id for record in archived_items],
+            default=0,
+        )
+        + 1
+    )
 
     created_item = ActionItem(
         id=next_id,
@@ -62,6 +75,65 @@ def create_mock_action_item(
 
     items.append(created_item)
     return created_item
+
+
+def archive_mock_action_item(
+    board_id: str,
+    item_id: int,
+    reason: str,
+    actor_id: str,
+    archived_at: str,
+) -> dict | None:
+    items = MOCK_ACTION_ITEMS.get(board_id, [])
+    item = next((item for item in items if item.id == item_id), None)
+    if item is None:
+        return None
+
+    record = {
+        "item": item,
+        "reason": reason,
+        "archivedBy": actor_id,
+        "archivedAt": archived_at,
+        "isArchived": True,
+        "restoredBy": None,
+        "restoredAt": None,
+    }
+    MOCK_ARCHIVED_ACTION_ITEMS.setdefault(board_id, []).append(record)
+    items.remove(item)
+    return record
+
+
+def list_mock_archived_action_items(board_id: str) -> list[dict]:
+    return [
+        record
+        for record in MOCK_ARCHIVED_ACTION_ITEMS.get(board_id, [])
+        if record.get("isArchived", True)
+    ]
+
+
+def restore_mock_action_item(
+    board_id: str,
+    item_id: int,
+    actor_id: str,
+    restored_at: str,
+):
+    records = MOCK_ARCHIVED_ACTION_ITEMS.get(board_id, [])
+    record = next(
+        (
+            record
+            for record in records
+            if record["item"].id == item_id and record.get("isArchived", True)
+        ),
+        None,
+    )
+    if record is None:
+        return None
+
+    MOCK_ACTION_ITEMS.setdefault(board_id, []).append(record["item"])
+    record["isArchived"] = False
+    record["restoredBy"] = actor_id
+    record["restoredAt"] = restored_at
+    return record["item"]
 
 
 def update_mock_action_item(

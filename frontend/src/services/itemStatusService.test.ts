@@ -130,7 +130,7 @@ describe('loadStatusHistory', () => {
         const fetchMock = mockFetch(200, [entry])
 
         expect(await loadStatusHistory('project-1', 2)).toEqual([entry])
-        expect(fetchMock).toHaveBeenCalledWith('/api/boards/project-1/items/2/history', undefined)
+        expect(fetchMock).toHaveBeenCalledWith('/api/boards/project-1/items/2/status-history', undefined)
     })
 
     it('returns an empty list for an item that has never changed', async () => {

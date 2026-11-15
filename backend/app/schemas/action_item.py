@@ -7,8 +7,20 @@ from app.schemas.action_items import TargetValue
 class ActionOwner(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     isExternal: bool
-    # ID from the known-company list; only external owners may have one.
+    # External owners can be linked to a company.
     organizationId: str | None = Field(default=None, max_length=100)
+
+    # Staff owners can be linked to FLINT's employee records.
+    employeeId: str | None = Field(default=None, max_length=100)
+
+    @field_validator("name")
+    @classmethod
+    def validate_owner_name(cls, value: str) -> str:
+        # Store trimmed names and reject whitespace-only owners.
+        name = value.strip()
+        if not name:
+            raise ValueError("Owner name cannot be empty.")
+        return name
 
 
 class ActionItem(BaseModel):
@@ -34,17 +46,17 @@ class ActionItemCreate(BaseModel):
     hardDate: str | None = None
     attention: bool = False
 
-    @field_validator('title')
+    @field_validator("title")
     @classmethod
     def title_not_blank(cls, value):
         return value.strip()
 
-    @field_validator('section')
+    @field_validator("section")
     @classmethod
     def normalize_section(cls, value):
         return value.strip() or "General"
 
-    @field_validator('hardDate')
+    @field_validator("hardDate")
     @classmethod
     def valid_hard_date(cls, value):
         if value is not None:
@@ -63,21 +75,45 @@ class ActionItemUpdate(BaseModel):
     hardDate: str | None = None
     attention: bool | None = None
 
-    @field_validator('hardDate')
+    @field_validator("hardDate")
     @classmethod
     def valid_hard_date(cls, value):
         return ActionItemCreate.valid_hard_date(value)
 
-    @field_validator('title')
+    @field_validator("title")
     @classmethod
     def title_not_blank(cls, value):
         if value is None or not value.strip():
             raise ValueError("Action item title cannot be empty.")
         return value.strip()
 
-    @field_validator('target', 'priority', 'status', 'owners', 'attention', 'title')
+    @field_validator("target", "priority", "status", "owners", "attention", "title")
     @classmethod
     def non_null_update(cls, value):
         if value is None:
             raise ValueError("This field cannot be null.")
         return value
+
+
+class ArchiveItemRequest(BaseModel):
+    reason: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("reason")
+    @classmethod
+    def reason_not_blank(cls, value):
+        value = value.strip()
+        if not value:
+            raise ValueError("An archive reason is required.")
+        return value
+
+
+class ArchivedActionItem(BaseModel):
+    item: ActionItem
+    reason: str
+    archivedBy: str
+    archivedAt: str
+
+
+class ArchivedActionItemsResponse(BaseModel):
+    archivedItems: list[ArchivedActionItem]
+    canRestore: bool

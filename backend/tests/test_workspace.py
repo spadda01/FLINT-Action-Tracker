@@ -88,7 +88,12 @@ def test_full_dialog_fields_and_inline_updates_survive_reads(workspace, index):
     saved = client.get(base + "/items").json()[0]
     assert saved["title"] == "Updated action"
     assert saved["owners"] == [
-        {"name": "Austin", "isExternal": False, "organizationId": None}
+        {
+            "name": "Austin",
+            "isExternal": False,
+            "organizationId": None,
+            "employeeId": None,
+        }
     ]
     assert saved["target"] == {"type": "date", "value": "2026-11-06"}
     assert saved["hardDate"] is None and saved["attention"] is False
@@ -165,6 +170,9 @@ def test_rejected_combined_patch_is_atomic_and_invalid_creation_rejected(workspa
     base = f"/api/boards/{boards[0]}"
     original = client.post(base + "/items", json={"title": "A"}).json()
     assert original["status"] == "Open"
+    history_path = base + f"/items/{original['id']}/history"
+    initial_history = client.get(history_path).json()
+    assert initial_history
     for data in [
         {"status": "Complete", "priority": "Invalid"},
         {"status": "Complete", "hardDate": "2026-02-30"},
@@ -176,7 +184,7 @@ def test_rejected_combined_patch_is_atomic_and_invalid_creation_rejected(workspa
             == 422
         )
         assert client.get(base + "/items").json()[0] == original
-    assert client.get(base + f"/items/{original['id']}/history").json() == []
+    assert client.get(history_path).json() == initial_history
     for data in [
         {"title": "A", "priority": "Invalid"},
         {"title": "A", "status": "Invalid"},
@@ -374,3 +382,234 @@ def test_link_existing_owner_preserves_information(workspace):
     assert owner["organizationId"] == "COMP001"
     assert updated.json()["id"] == item_id
     assert updated.json()["title"] == "Review construction plans"
+
+
+@pytest.mark.parametrize("index", [0, 1])
+def test_item_history_records_changes_and_ignores_unchanged_saves(workspace, index):
+    client, boards = workspace
+    base = f"/api/boards/{boards[index]}"
+    created = client.post(base + "/items", json={"title": "History test"})
+    assert created.status_code == 201
+
+    item_id = created.json()["id"]
+    item_path = base + f"/items/{item_id}"
+    history_path = item_path + "/history"
+    initial_history = client.get(history_path).json()
+
+    response = client.patch(item_path, json={"title": "Updated history test"})
+    assert response.status_code == 200
+
+    entries = client.get(history_path).json()
+    assert len(entries) == len(initial_history) + 1
+
+    latest = entries[0]
+    assert latest["actorId"] == "user-1"
+    assert latest["changedAt"]
+    assert latest["field"] == "title"
+    assert latest["oldValue"] == "History test"
+    assert latest["newValue"] == "Updated history test"
+
+    # Saving the same title must leave history unchanged.
+    assert (
+        client.patch(item_path, json={"title": "Updated history test"}).status_code
+        == 200
+    )
+    assert client.get(history_path).json() == entries
+
+
+@pytest.mark.parametrize("index", [0, 1])
+def test_item_history_is_read_only_and_requires_board_access(
+    workspace, monkeypatch, index
+):
+    client, boards = workspace
+    base = f"/api/boards/{boards[index]}"
+    created = client.post(base + "/items", json={"title": "Protected history"})
+    assert created.status_code == 201
+
+    history_path = base + f"/items/{created.json()['id']}/history"
+    original = client.get(history_path).json()
+    assert original
+
+    for method in ["POST", "PUT", "PATCH", "DELETE"]:
+        response = client.request(method, history_path, json={"newValue": "Tampered"})
+        assert response.status_code == 405
+
+    assert client.get(history_path).json() == original
+
+    monkeypatch.setenv("MOCK_USER_ID", "user-2")
+    assert client.get(history_path).status_code == 404
+
+
+@pytest.mark.parametrize("index", [0, 1])
+def test_all_item_update_paths_append_history(workspace, index):
+    client, boards = workspace
+    base = f"/api/boards/{boards[index]}"
+
+    created = client.post(base + "/items", json={"title": "Track changes"})
+    assert created.status_code == 201
+    item_path = base + f"/items/{created.json()['id']}"
+
+    section = client.post(base + "/sections", json={"name": "Follow-ups"})
+    assert section.status_code == 201
+    section_id = section.json()["id"]
+
+    operations = [
+        (
+            "PATCH",
+            item_path + "/priority",
+            {"priority": "High"},
+            "priority",
+            "Medium",
+            "High",
+        ),
+        (
+            "PATCH",
+            item_path + "/status",
+            {"status": "Complete"},
+            "status",
+            "Open",
+            "Complete",
+        ),
+        (
+            "POST",
+            item_path + "/move",
+            {"sectionId": section_id},
+            "section",
+            "General",
+            "Follow-ups",
+        ),
+        (
+            "PATCH",
+            base + f"/sections/{section_id}",
+            {"name": "Review"},
+            "section",
+            "Follow-ups",
+            "Review",
+        ),
+    ]
+
+    history_path = item_path + "/history"
+    previous = client.get(history_path).json()
+
+    for method, path, data, field, old_value, new_value in operations:
+        assert client.request(method, path, json=data).status_code == 200
+
+        entries = client.get(history_path).json()
+        assert len(entries) == len(previous) + 1
+        assert entries[1:] == previous
+        assert entries[0]["field"] == field
+        assert entries[0]["oldValue"] == old_value
+        assert entries[0]["newValue"] == new_value
+        assert entries[0]["actorId"] == "user-1"
+        previous = entries
+
+
+@pytest.mark.parametrize("index", [0, 1])
+def test_owner_changes_preserve_order_types_and_saved_values(workspace, index):
+    client, boards = workspace
+    base = f"/api/boards/{boards[index]}"
+
+    staff = {
+        "name": "Austin",
+        "isExternal": False,
+        "employeeId": None,
+        "organizationId": None,
+    }
+    external = {
+        "name": "Sarah",
+        "isExternal": True,
+        "employeeId": None,
+        "organizationId": None,
+    }
+    added = {
+        "name": "Taylor",
+        "isExternal": True,
+        "employeeId": None,
+        "organizationId": None,
+    }
+
+    created = client.post(
+        base + "/items",
+        json={"title": "Owner assignment test", "owners": [staff, external]},
+    )
+    assert created.status_code == 201
+    item_id = created.json()["id"]
+    item_path = base + f"/items/{item_id}"
+    history_path = item_path + "/history"
+    previous_history = client.get(history_path).json()
+    previous_owners = [staff, external]
+
+    for owners in [
+        [external, staff],
+        [external, staff, added],
+        [staff, added],
+        [],
+    ]:
+        response = client.patch(item_path, json={"owners": owners})
+        assert response.status_code == 200
+        assert response.json()["owners"] == owners
+
+        saved = next(
+            item for item in client.get(base + "/items").json() if item["id"] == item_id
+        )
+        assert saved["owners"] == owners
+
+        entries = client.get(history_path).json()
+        assert len(entries) == len(previous_history) + 1
+        assert entries[1:] == previous_history
+
+        latest = entries[0]
+        assert latest["field"] == "owners"
+        assert latest["actorId"] == "user-1"
+        assert latest["changedAt"]
+        assert latest["oldValue"] == previous_owners
+        assert latest["newValue"] == owners
+
+        previous_history = entries
+        previous_owners = owners
+    # saving unchanged owners must not add another history entry
+    assert client.patch(item_path, json={"owners": []}).status_code == 200
+    assert client.get(history_path).json() == previous_history
+
+
+@pytest.mark.parametrize("index", [0, 1])
+def test_invalid_and_unauthorized_owner_changes_preserve_saved_item(
+    workspace, monkeypatch, index
+):
+    client, boards = workspace
+    base = f"/api/boards/{boards[index]}"
+    owners = [{"name": "Austin", "isExternal": False}]
+
+    created = client.post(
+        base + "/items",
+        json={"title": "Protected owners", "owners": owners},
+    )
+    assert created.status_code == 201
+    original = created.json()
+    item_path = base + f"/items/{original['id']}"
+
+    for invalid_owners in [
+        [{"name": "   ", "isExternal": False}],
+        [{"name": "", "isExternal": True}],
+        [{"name": "Taylor"}],
+        None,
+    ]:
+        response = client.patch(item_path, json={"owners": invalid_owners})
+        assert response.status_code == 422
+        saved = next(
+            item
+            for item in client.get(base + "/items").json()
+            if item["id"] == original["id"]
+        )
+        assert saved == original
+
+    monkeypatch.setenv("MOCK_USER_ID", "user-2")
+    assert client.patch(item_path, json={"owners": []}).status_code == 404
+
+    monkeypatch.setenv("MOCK_USER_ID", "user-1")
+    saved = next(
+        item
+        for item in client.get(base + "/items").json()
+        if item["id"] == original["id"]
+    )
+    assert saved == original
