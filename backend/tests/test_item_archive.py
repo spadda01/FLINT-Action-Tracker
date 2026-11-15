@@ -65,14 +65,15 @@ def test_archive_requires_reason_and_keeps_item_for_admin_restore(archive_client
     item = client.post(base + "/items", json={"title": "Incorrect action"}).json()
     item_id = item["id"]
 
-    assert client.post(
-        f"{base}/items/{item_id}/archive", json={"reason": "  "}
-    ).status_code == 422
+    assert (
+        client.post(
+            f"{base}/items/{item_id}/archive", json={"reason": "  "}
+        ).status_code
+        == 422
+    )
     assert client.get(base + "/items").json() == [item]
 
-    client.patch(
-        f"{base}/items/{item_id}/status", json={"status": "Complete"}
-    )
+    client.patch(f"{base}/items/{item_id}/status", json={"status": "Complete"})
     archived = client.post(
         f"{base}/items/{item_id}/archive",
         json={"reason": "Entered on the wrong board"},
@@ -94,7 +95,10 @@ def test_archive_requires_reason_and_keeps_item_for_admin_restore(archive_client
     assert client.get(base + "/items").json() == [restored.json()]
     history = client.get(base + f"/items/{item_id}/history")
     assert history.status_code == 200
-    assert history.json()[0]["newStatus"] == "Complete"
+    assert any(
+        entry["field"] == "status" and entry["newValue"] == "Complete"
+        for entry in history.json()
+    )
     assert client.get(base + "/items/archived").json()["archivedItems"] == []
     archive_record = MOCK_ARCHIVED_ACTION_ITEMS[board_id][0]
     assert archive_record["reason"] == "Entered on the wrong board"
@@ -108,9 +112,12 @@ def test_restore_is_server_restricted_to_board_admin(archive_client, monkeypatch
     base = f"/api/boards/{board_id}"
     item = client.post(base + "/items", json={"title": "Mistaken action"}).json()
     item_id = item["id"]
-    assert client.post(
-        f"{base}/items/{item_id}/archive", json={"reason": "Duplicate"}
-    ).status_code == 200
+    assert (
+        client.post(
+            f"{base}/items/{item_id}/archive", json={"reason": "Duplicate"}
+        ).status_code
+        == 200
+    )
 
     monkeypatch.setenv("MOCK_USER_ID", "user-2")
     assert client.get(base + "/items/archived").json()["canRestore"] is False
@@ -127,13 +134,17 @@ def test_nonmember_cannot_archive_or_restore(archive_client, monkeypatch):
     item = client.post(
         f"/api/boards/{board_id}/items", json={"title": "Restricted action"}
     ).json()
-    assert client.post(
-        f"/api/boards/{board_id}/items/{item['id']}/archive",
-        json={"reason": "Duplicate"},
-    ).status_code == 200
+    assert (
+        client.post(
+            f"/api/boards/{board_id}/items/{item['id']}/archive",
+            json={"reason": "Duplicate"},
+        ).status_code
+        == 200
+    )
 
     monkeypatch.setenv("MOCK_USER_ID", "user-3")
     assert client.get(f"/api/boards/{board_id}/items/archived").status_code == 404
-    assert client.post(
-        f"/api/boards/{board_id}/items/{item['id']}/restore"
-    ).status_code == 404
+    assert (
+        client.post(f"/api/boards/{board_id}/items/{item['id']}/restore").status_code
+        == 404
+    )

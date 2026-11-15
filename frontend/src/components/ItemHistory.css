@@ -1,0 +1,73 @@
+.item-history-button {
+  display: block;
+  margin-top: 6px;
+  padding: 4px 8px;
+  border: 1px solid #cbd3d8;
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.item-history-button:hover {
+  background: #eef1f3;
+}
+
+.item-history-button:focus-visible,
+.item-history button:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 3px;
+}
+
+.item-history {
+  min-width: 0;
+  padding: 16px;
+  color: #334155;
+  overflow-wrap: anywhere;
+}
+
+.item-history h3 {
+  margin: 0 0 16px;
+}
+
+.item-history-list {
+  display: grid;
+  gap: 12px;
+  max-height: 55vh;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.item-history-entry {
+  padding: 14px;
+  border: 1px solid #d7dee3;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.item-history-entry p {
+  margin: 0 0 6px;
+}
+
+.item-history-entry time {
+  color: #526170;
+  font-size: 13px;
+}
+
+.item-history-entry dl {
+  margin: 12px 0 0;
+}
+
+.item-history-entry dt {
+  margin-top: 8px;
+  font-weight: 600;
+}
+
+.item-history-entry dd {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+}

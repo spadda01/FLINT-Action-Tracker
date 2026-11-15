@@ -7,6 +7,9 @@ import EmployeePicker from './EmployeePicker'
 import InactiveBadge from './InactiveBadge'
 import StatusChooser from './StatusChooser'
 import WorkspaceDialog from './WorkspaceDialog'
+import './OwnerChips.css'
+import ItemHistory from './ItemHistory'
+
 
 type Field = 'title' | 'owners' | 'target' | 'priority' | 'hardDate'
 type Update = Partial<Omit<ItemInput, 'section'>>
@@ -18,7 +21,7 @@ type Props = {
   allItems: ActionItem[]
   priorities: PriorityLevel[]
   statuses: string[]
-  // Staff owners who have left FLINT, shown with an Inactive marker.
+  // Staff who have left FLINT remain visible as inactive owners.
   inactiveEmployeeIds: ReadonlySet<string>
   moving: boolean
   onUpdate: (update: Update) => Promise<void>
@@ -48,52 +51,65 @@ function FieldEditor({
   onSave: (update: Update) => Promise<void>
   onClose: () => void
 }) {
-  const [text, setText] = useState(
-    field === 'title'
-      ? item.title
-      : field === 'hardDate'
-        ? (item.hardDate ?? '')
-        : item.priority,
-  )
-  const [target, setTarget] = useState<TargetDisplay>(
-    displayTarget(item.target),
-  )
-  const [owners, setOwners] = useState(item.owners.map((o) => ({ ...o })))
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-  async function save(event?: FormEvent) {
-    event?.preventDefault()
-    if (saving) return
-    setError('')
-    setSaving(true)
-    try {
-      const update: Update =
-        field === 'target'
-          ? {
-              target: targetFromInput(
-                target.type,
-                target.value,
-              ) as TargetDisplay,
-            }
-          : field === 'owners'
-            ? {
-                owners: owners
-                  .filter((o) => o.name.trim())
-                  .map((o) => ({ ...o, name: o.name.trim() })),
-              }
+    const [text, setText] = useState(
+        field === 'title'
+            ? item.title
             : field === 'hardDate'
-              ? { hardDate: text || null }
-              : { [field]: text }
-      await onSave(update)
-      onClose()
-    } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : 'Unable to save. Try again.',
-      )
-    } finally {
-      setSaving(false)
+                ? (item.hardDate ?? '')
+                : item.priority,
+    )
+    const [target, setTarget] = useState<TargetDisplay>(
+        displayTarget(item.target),
+    )
+    const [owners, setOwners] = useState(item.owners.map((o) => ({ ...o })))
+    const [saving, setSaving] = useState(false)
+    const [error, setError] = useState('')
+
+    function moveOwner(index: number, direction: -1 | 1) {
+        const nextIndex = index + direction
+        if (nextIndex < 0 || nextIndex >= owners.length) return
+
+        // Change owner order without changing names or staff/external types.
+        setOwners((current) => {
+            const reordered = [...current]
+                ;[reordered[index], reordered[nextIndex]] = [
+                    reordered[nextIndex],
+                    reordered[index],
+                ]
+            return reordered
+        })
+
+        requestAnimationFrame(() => {
+            document.getElementById(`owner-${item.id}-${nextIndex}-${nextIndex === 0 ? 'down' : 'up'}`)?.focus()
+        })
     }
-  }
+
+    async function save(event?: FormEvent) {
+      event?.preventDefault()
+      if (saving) return
+      setError('')
+      setSaving(true)
+      try {
+        if (field === 'owners' && owners.some((owner) => !owner.name.trim())) {
+          throw new Error('Enter a name for each owner or remove the empty row.')
+        }
+        const update: Update =
+          field === 'target'
+            ? { target: targetFromInput(target.type, target.value) as TargetDisplay }
+            : field === 'owners'
+              ? { owners: owners.map((owner) => ({ ...owner, name: owner.name.trim() })) }
+              : field === 'hardDate'
+                ? { hardDate: text || null }
+                : { [field]: text }
+        await onSave(update)
+        onClose()
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : 'Unable to save. Try again.')
+      } finally {
+        setSaving(false)
+      }
+    }
+
   return (
     <form
       className="max-cell-editor"
@@ -197,6 +213,24 @@ function FieldEditor({
                   </>
                 )}
                 <button
+                  id={`owner-${item.id}-${index}-up`}
+                  type="button"
+                  aria-label={`Move owner ${index + 1} up`}
+                  disabled={index === 0}
+                  onClick={() => moveOwner(index, -1)}
+                >
+                  ↑
+                </button>
+                <button
+                  id={`owner-${item.id}-${index}-down`}
+                  type="button"
+                  aria-label={`Move owner ${index + 1} down`}
+                  disabled={index === owners.length - 1}
+                  onClick={() => moveOwner(index, 1)}
+                >
+                  ↓
+                </button>
+                <button
                   type="button"
                   onClick={() =>
                     setOwners((current) =>
@@ -299,6 +333,7 @@ export default function BoardItemRow({
 }: Props) {
   const [editing, setEditing] = useState<Field | null>(null)
   const [moveOpen, setMoveOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const [archiveOpen, setArchiveOpen] = useState(false)
   const [archiveReason, setArchiveReason] = useState('')
   const [archiveError, setArchiveError] = useState('')
@@ -459,82 +494,109 @@ export default function BoardItemRow({
                 void move(destination, before ? Number(before) : null)
               }}
             >
-              <label>
-                Destination section
-                <select
-                  aria-label="Destination section"
-                  autoFocus
-                  value={destination}
-                  onChange={(e) => {
-                    setDestination(e.target.value)
-                    setBefore('')
-                  }}
-                >
-                  {sections.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Position
-                <select
-                  aria-label="Position"
-                  value={before}
-                  onChange={(e) => setBefore(e.target.value)}
-                >
-                  <option value="">End of section</option>
-                  {allItems
-                    .filter(
-                      (entry) =>
-                        entry.id !== item.id &&
-                        (entry.section.trim() || 'General') ===
-                          sections.find((s) => s.id === destination)?.name,
-                    )
-                    .map((entry) => (
-                      <option key={entry.id} value={entry.id}>
-                        Before {entry.title}
-                      </option>
-                    ))}
-                </select>
-              </label>
-              {error && (
-                <p role="alert" className="max-error">
-                  {error}
-                </p>
-              )}
-              <div className="max-dialog-actions">
-                <button
-                  type="button"
-                  disabled={moving}
-                  onClick={() => setMoveOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button className="max-primary" type="submit" disabled={moving}>
-                  {moving ? 'Moving…' : 'Move item'}
-                </button>
-              </div>
-            </form>
+                            <label>
+                                Destination section
+                                <select
+                                    aria-label="Destination section"
+                                    autoFocus
+                                    value={destination}
+                                    onChange={(e) => {
+                                        setDestination(e.target.value)
+                                        setBefore('')
+                                    }}
+                                >
+                                    {sections.map((s) => (
+                                        <option key={s.id} value={s.id}>
+                                            {s.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+                            <label>
+                                Position
+                                <select
+                                    aria-label="Position"
+                                    value={before}
+                                    onChange={(e) => setBefore(e.target.value)}
+                                >
+                                    <option value="">End of section</option>
+                                    {allItems
+                                        .filter(
+                                            (entry) =>
+                                                entry.id !== item.id &&
+                                                (entry.section.trim() || 'General') ===
+                                                sections.find((s) => s.id === destination)?.name,
+                                        )
+                                        .map((entry) => (
+                                            <option key={entry.id} value={entry.id}>
+                                                Before {entry.title}
+                                            </option>
+                                        ))}
+                                </select>
+                            </label>
+                            {error && (
+                                <p role="alert" className="max-error">
+                                    {error}
+                                </p>
+                            )}
+                            <div className="max-dialog-actions">
+                                <button
+                                    type="button"
+                                    disabled={moving}
+                                    onClick={() => setMoveOpen(false)}
+                                >
+                                    Cancel
+                                </button>
+                                <button className="max-primary" type="submit" disabled={moving}>
+                                    {moving ? 'Moving…' : 'Move item'}
+                                </button>
+                            </div>
+                        </form>
+                    </WorkspaceDialog>
+                )}
+            </td>
+      <td className="max-title-cell">
+        {cell('title', item.title)}
+        <button
+          type="button"
+          className="item-history-button"
+          aria-label={`View history for ${item.title}`}
+          aria-haspopup="dialog"
+          onClick={() => setHistoryOpen(true)}
+        >
+          History
+        </button>
+        {historyOpen && (
+          <WorkspaceDialog
+            title={`History: ${item.title}`}
+            onClose={() => setHistoryOpen(false)}
+          >
+            <ItemHistory boardId={boardId} itemId={item.id} />
           </WorkspaceDialog>
         )}
       </td>
-      <td className="max-title-cell">{cell('title', item.title)}</td>
       <td>
         {cell(
           'owners',
           item.owners.length
-            ? item.owners.map((owner, index) => (
-                <span key={index}>
-                  {index > 0 && ' / '}
-                  {owner.name}
-                  {owner.isExternal && ' (external)'}
-                  {owner.employeeId && inactiveEmployeeIds.has(owner.employeeId) && (
-                    <> <InactiveBadge /></>
-                  )}
+            ? (
+                <span className="owner-chips">
+                  {item.owners.map((owner, index) => (
+                    <span
+                      key={index}
+                      className={`owner-chip${owner.isExternal ? ' owner-chip-external' : ''}`}
+                    >
+                      {owner.name}
+                      <span className="owner-chip-type">
+                        {owner.isExternal ? 'External' : 'Staff'}
+                      </span>
+                      {owner.employeeId && inactiveEmployeeIds.has(owner.employeeId) && (
+                        <InactiveBadge />
+                      )}
+                    </span>
+                  ))}
                 </span>
-              ))
+              )
             : 'Assign owners',
         )}
       </td>

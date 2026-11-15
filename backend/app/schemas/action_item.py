@@ -10,6 +10,15 @@ class ActionOwner(BaseModel):
     # Links a staff owner to FLINT's employee records; free-text owners leave it empty.
     employeeId: str | None = Field(default=None, max_length=100)
 
+    @field_validator("name")
+    @classmethod
+    def validate_owner_name(cls, value: str) -> str:
+        # Store trimmed names and reject whitespace-only owners.
+        name = value.strip()
+        if not name:
+            raise ValueError("Owner name cannot be empty.")
+        return name
+
 
 class ActionItem(BaseModel):
     id: int
@@ -34,17 +43,17 @@ class ActionItemCreate(BaseModel):
     hardDate: str | None = None
     attention: bool = False
 
-    @field_validator('title')
+    @field_validator("title")
     @classmethod
     def title_not_blank(cls, value):
         return value.strip()
 
-    @field_validator('section')
+    @field_validator("section")
     @classmethod
     def normalize_section(cls, value):
         return value.strip() or "General"
 
-    @field_validator('hardDate')
+    @field_validator("hardDate")
     @classmethod
     def valid_hard_date(cls, value):
         if value is not None:
@@ -63,19 +72,19 @@ class ActionItemUpdate(BaseModel):
     hardDate: str | None = None
     attention: bool | None = None
 
-    @field_validator('hardDate')
+    @field_validator("hardDate")
     @classmethod
     def valid_hard_date(cls, value):
         return ActionItemCreate.valid_hard_date(value)
 
-    @field_validator('title')
+    @field_validator("title")
     @classmethod
     def title_not_blank(cls, value):
         if value is None or not value.strip():
             raise ValueError("Action item title cannot be empty.")
         return value.strip()
 
-    @field_validator('target', 'priority', 'status', 'owners', 'attention', 'title')
+    @field_validator("target", "priority", "status", "owners", "attention", "title")
     @classmethod
     def non_null_update(cls, value):
         if value is None:
