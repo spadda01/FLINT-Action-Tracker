@@ -2,7 +2,10 @@ import os
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 
-from app.api.priorities import router as priorities_router, priority_service as configured_priorities
+from app.api.priorities import (
+    router as priorities_router,
+    priority_service as configured_priorities,
+)
 from app.adapters.boards import BoardRepository, MockBoardRepository
 from app.api.boards import get_board_service, router as boards_router
 from app.api.item_status import get_status_service, router as item_status_router
@@ -26,7 +29,6 @@ from app.services.status_service import (
 from app.adapters.interfaces import CompanyAdapter
 from app.services.board_access import MOCK_EMPLOYEE_IDS, can_open_created_board
 
-
 app = FastAPI(title="FLINT Action Tracker API")
 app.include_router(priorities_router)
 app.include_router(workspace_router)
@@ -38,18 +40,45 @@ def get_company_adapter() -> CompanyAdapter:
     return services["companies"]
 
 
-def validate_owner_organizations(owners, companies: CompanyAdapter) -> None:
-    """Owners may only reference known companies, and only when external."""
-    known = {company["id"] for company in companies.get_companies()}
-    for owner in owners or []:
+def validate_owner_organizations(
+    owners,
+    companies: CompanyAdapter,
+    existing_owners=None,
+) -> None:
+    """Preserve existing company links while validating new assignments."""
+    if not owners:
+        return
+
+    existing_links = {
+        (owner.name, owner.isExternal, owner.organizationId)
+        for owner in (existing_owners or [])
+        if owner.organizationId is not None
+    }
+
+    new_links = []
+
+    for owner in owners:
         if owner.organizationId is None:
             continue
+
         if not owner.isExternal:
             raise HTTPException(
                 status_code=422,
                 detail="Only external owners can be assigned an organization.",
             )
-        if owner.organizationId not in known:
+
+        link = (owner.name, owner.isExternal, owner.organizationId)
+
+        if link not in existing_links:
+            new_links.append(owner.organizationId)
+
+    if not new_links:
+        return
+
+    known = {company["id"] for company in companies.get_companies()}
+
+    for organization_id in new_links:
+        if organization_id not in known:
             raise HTTPException(
                 status_code=422,
                 detail="Choose an organization from the FLINT list.",
@@ -91,13 +120,13 @@ def has_board_access(
     repository: BoardRepository,
     service: BoardService,
 ) -> bool:
-    if any(board.id == board_id for board in list_accessible_boards(user_id, repository)):
+    if any(
+        board.id == board_id for board in list_accessible_boards(user_id, repository)
+    ):
         return True
 
     saved_board = service.get_board(board_id)
-    return bool(
-        saved_board and can_open_created_board(saved_board, user_id, service)
-    )
+    return bool(saved_board and can_open_created_board(saved_board, user_id, service))
 
 
 # Keep team-board creation on the shared router, with mock identity checks.
@@ -123,9 +152,17 @@ def get_boards(
         for board in service.repository.list_boards()
         if can_open_created_board(board, user_id, service)
     )
-    return [board.model_copy(update={"openItemCount": sum(
-        item.status != "Complete" for item in get_mock_action_items(board.id)
-    )}) for board in boards]
+    return [
+        board.model_copy(
+            update={
+                "openItemCount": sum(
+                    item.status != "Complete"
+                    for item in get_mock_action_items(board.id)
+                )
+            }
+        )
+        for board in boards
+    ]
 
 
 @app.get("/api/boards/{board_id}", response_model=Board | BoardSummary)
@@ -137,16 +174,27 @@ def get_board(
 ) -> Board | BoardSummary:
     for board in list_accessible_boards(user_id, repository):
         if board.id == board_id:
-            return board.model_copy(update={"openItemCount": sum(
-                item.status != "Complete" for item in get_mock_action_items(board_id)
-            )})
+            return board.model_copy(
+                update={
+                    "openItemCount": sum(
+                        item.status != "Complete"
+                        for item in get_mock_action_items(board_id)
+                    )
+                }
+            )
 
     # Preserve the saved board's full details, but only for an allowed member.
     saved_board = service.get_board(board_id)
     if saved_board and can_open_created_board(saved_board, user_id, service):
-        return Board.model_validate({**saved_board, "openItemCount": sum(
-            item.status != "Complete" for item in get_mock_action_items(board_id)
-        )})
+        return Board.model_validate(
+            {
+                **saved_board,
+                "openItemCount": sum(
+                    item.status != "Complete"
+                    for item in get_mock_action_items(board_id)
+                ),
+            }
+        )
     raise HTTPException(status_code=404, detail="Board not found.")
 
 
@@ -216,7 +264,6 @@ def update_board_item_target(
 ) -> ActionItem:
     # Verify board access before allowing an update.
     require_board_access(board_id, user_id, repository, service)
-    validate_owner_organizations(update.owners, companies)
 
     # Validate every requested value before changing any shared item state.
     if update.priority is not None:
@@ -226,16 +273,28 @@ def update_board_item_target(
             raise HTTPException(status_code=422, detail=str(error)) from error
 
     with WORKSPACE_LOCK:
-        item = next((item for item in get_mock_action_items(board_id) if item.id == item_id), None)
+        item = next(
+            (item for item in get_mock_action_items(board_id) if item.id == item_id),
+            None,
+        )
         if item is None:
             raise HTTPException(status_code=404, detail="Action item not found.")
+        # validate owner changes against the item's existing assignments.
+        if update.owners is not None:
+            validate_owner_organizations(
+                update.owners,
+                companies,
+                existing_owners=item.owners,
+            )
         if update.status is not None:
             try:
                 status_service.change_status(board_id, item_id, update.status, user_id)
             except StatusValidationError as error:
                 raise HTTPException(status_code=422, detail=error.message) from error
             except ItemNotFoundError as error:
-                raise HTTPException(status_code=404, detail="Action item not found.") from error
+                raise HTTPException(
+                    status_code=404, detail="Action item not found."
+                ) from error
         for field in update.model_fields_set - {"status"}:
             setattr(item, field, getattr(update, field))
         return item
