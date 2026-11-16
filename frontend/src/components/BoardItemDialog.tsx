@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import WorkspaceDialog from './WorkspaceDialog'
+import OrganizationSelect from './OrganizationSelect'
+import type { OrganizationsState } from '../services/organizationService'
 import type { ItemInput, Section } from '../services/workspaceService'
 import type { PriorityLevel } from '../services/priorityService'
 import type { TargetDisplay } from '../target'
@@ -8,20 +10,22 @@ export default function BoardItemDialog({
   sections,
   priorities,
   statuses,
+  organizations,
+  onRetryOrganizations,
   onClose,
   onSave,
 }: {
   sections: Section[]
   priorities: PriorityLevel[]
   statuses: string[]
+  organizations: OrganizationsState
+  onRetryOrganizations: () => void
   onClose: () => void
   onSave: (input: ItemInput) => Promise<void>
 }) {
   const [title, setTitle] = useState('')
   const [section, setSection] = useState(sections[0]?.name ?? 'General')
-  const [owners, setOwners] = useState<{ name: string; isExternal: boolean }[]>(
-    [],
-  )
+  const [owners, setOwners] = useState<ItemInput['owners']>([])
   const [target, setTarget] = useState<TargetDisplay>({
     type: 'text',
     value: '',
@@ -117,7 +121,13 @@ export default function BoardItemDialog({
                       setOwners((current) =>
                         current.map((o, i) =>
                           i === index
-                            ? { ...o, isExternal: e.target.checked }
+                            ? {
+                                ...o,
+                                isExternal: e.target.checked,
+                                organizationId: e.target.checked
+                                  ? o.organizationId
+                                  : null,
+                              }
                             : o,
                         ),
                       )
@@ -125,6 +135,21 @@ export default function BoardItemDialog({
                   />
                   External
                 </label>
+                {owner.isExternal && (
+                  <OrganizationSelect
+                    label={`Organization for owner ${index + 1}`}
+                    value={owner.organizationId}
+                    state={organizations}
+                    onRetry={onRetryOrganizations}
+                    onChange={(organizationId) =>
+                      setOwners((current) =>
+                        current.map((o, i) =>
+                          i === index ? { ...o, organizationId } : o,
+                        ),
+                      )
+                    }
+                  />
+                )}
                 <button
                   type="button"
                   aria-label={`Remove owner ${index + 1}`}
@@ -143,7 +168,7 @@ export default function BoardItemDialog({
               onClick={() =>
                 setOwners((current) => [
                   ...current,
-                  { name: '', isExternal: false },
+                  { name: '', isExternal: false, organizationId: null },
                 ])
               }
             >

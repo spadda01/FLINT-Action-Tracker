@@ -7,6 +7,21 @@ MOCK_EMPLOYEE_IDS = {
     "user-3": "E003",
 }
 
+MOCK_BOARD_ADMIN_IDS = {
+    "project-1": {"user-1"},
+    "project-2": {"user-2"},
+    "team-1": {"user-1"},
+    "team-2": {"user-2"},
+}
+
+
+def is_board_admin(board_id: str, user_id: str, service: BoardService) -> bool:
+    if board_id in MOCK_BOARD_ADMIN_IDS:
+        return user_id in MOCK_BOARD_ADMIN_IDS[board_id]
+
+    board = service.get_board(board_id)
+    return bool(board and user_id in board.get("adminUserIds", []))
+
 
 def can_open_created_board(
     board: dict,

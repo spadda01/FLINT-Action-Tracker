@@ -1,4 +1,3 @@
-
 # AT-165: Mock priority API for action items.
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -10,6 +9,8 @@ from app.services.board_access import can_access_board
 from app.services.board_service import BoardService
 from app.adapters.mock_action_items import MOCK_ACTION_ITEMS, MockActionItemRepository
 from app.services.priority_service import PriorityService
+from app.adapters.board_sections import WORKSPACE_LOCK
+from app.services.item_history_service import item_history_service
 
 router = APIRouter(prefix="/api", tags=["Priorities"])
 
@@ -20,24 +21,22 @@ item_repository = MockActionItemRepository(MOCK_ACTION_ITEMS)
 class PriorityUpdate(BaseModel):
     priority: str
 
+
 def get_mock_user():
     import os
 
     if os.getenv("APP_MODE") != "mock":
         raise HTTPException(
-            status_code=503,
-            detail="Backend integration is not configured."
+            status_code=503, detail="Backend integration is not configured."
         )
 
     user_id = os.getenv("MOCK_USER_ID", "user-1")
 
     if user_id not in ("user-1", "user-2", "user-3"):
-        raise HTTPException(
-            status_code=401,
-            detail="The mock user is not recognized."
-        )
+        raise HTTPException(status_code=401, detail="The mock user is not recognized.")
 
     return user_id
+
 
 @router.get("/priorities")
 def get_priorities():
@@ -84,9 +83,27 @@ def update_item_priority(
 
     try:
         priority_service.validate_priority(data.priority)
-        return item_repository.save_priority(
-            board_id, item_id, data.priority
-        )
+
+        with WORKSPACE_LOCK:
+            original = next(
+                (
+                    item
+                    for item in item_repository.list_items(board_id)
+                    if item["id"] == item_id
+                ),
+                None,
+            )
+            if original is None:
+                raise ValueError("Action item not found")
+            saved = item_repository.save_priority(board_id, item_id, data.priority)
+            item_history_service.record_changes(
+                board_id=board_id,
+                item_id=item_id,
+                actor_id=user_id,
+                before={"priority": original["priority"]},
+                after={"priority": saved["priority"]},
+            )
+            return saved
     except ValueError as error:
         if str(error) == "Invalid priority":
             raise HTTPException(status_code=422, detail=str(error))

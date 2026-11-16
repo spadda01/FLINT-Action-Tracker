@@ -1,0 +1,48 @@
+.owner-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.owner-chip {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: 4px 9px;
+  border: 1px solid #cbd3d8;
+  border-radius: 16px;
+  background: #eef1f3;
+  color: #334155;
+  font-size: 13px;
+  overflow-wrap: normal;
+  word-break: normal;
+  white-space: normal;
+  text-align: left;
+}
+
+/* Keep owner names readable; let longer organization names wrap at spaces. */
+.owner-chip .owner-type-badge,
+.owner-chip .owner-type-indicator {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.owner-chip .max-organization-name {
+  min-width: 0;
+  overflow-wrap: normal;
+  word-break: normal;
+  white-space: normal;
+}
+
+.owner-chip-external {
+  border-color: #d7c4a0;
+  background: #fff6e5;
+}
+
+.owner-chip-type {
+  font-size: 11px;
+  font-weight: 600;
+}

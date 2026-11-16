@@ -33,6 +33,16 @@ let sections: { id: string; name: string }[]
 let failPatch: boolean
 let failStatus: boolean
 let failMove: boolean
+let failArchive: boolean
+let failRestore: boolean
+let failArchivedLoad: boolean
+let canRestore: boolean
+let archivedItems: {
+  item: ActionItem
+  reason: string
+  archivedBy: string
+  archivedAt: string
+}[]
 let fetchMock: ReturnType<typeof vi.fn>
 
 beforeEach(() => {
@@ -44,6 +54,11 @@ beforeEach(() => {
   failPatch = false
   failStatus = false
   failMove = false
+  failArchive = false
+  failRestore = false
+  failArchivedLoad = false
+  canRestore = true
+  archivedItems = []
   Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
     configurable: true,
     value: function (this: HTMLDialogElement) {
@@ -103,10 +118,36 @@ beforeEach(() => {
       items.push(item)
       return Response.json(item, { status: 201 })
     }
+    if (path.endsWith('/items/archived')) {
+      if (failArchivedLoad) {
+        failArchivedLoad = false
+        return Response.json({ detail: 'Archive list unavailable.' }, { status: 503 })
+      }
+      return Response.json({ archivedItems, canRestore })
+    }
     if (path.endsWith('/items')) return Response.json(items)
     const id = Number(path.match(/\/items\/(\d+)/)?.[1])
+    if (path.endsWith('/restore')) {
+      if (failRestore) return Response.json({ detail: 'Restore failed.' }, { status: 500 })
+      const record = archivedItems.find((current) => current.item.id === id)
+      if (!record) return Response.json({}, { status: 404 })
+      archivedItems = archivedItems.filter((current) => current.item.id !== id)
+      items.push(record.item)
+      return Response.json(record.item)
+    }
     const item = items.find((i) => i.id === id)
     if (!item) return Response.json({}, { status: 404 })
+    if (path.endsWith('/archive')) {
+      if (failArchive) return Response.json({ detail: 'Archive failed.' }, { status: 500 })
+      archivedItems.push({
+        item: structuredClone(item),
+        reason: data.reason,
+        archivedBy: 'user-1',
+        archivedAt: '2026-11-13T10:00:00Z',
+      })
+      items = items.filter((current) => current.id !== id)
+      return Response.json(item)
+    }
     if (path.endsWith('/status')) {
       if (failStatus) return Response.json({}, { status: 500 })
       item.status = data.status
@@ -239,6 +280,36 @@ test('opens add dialog with keyboard, rejects spaces and sends every chosen fiel
     priority: 'Medium',
     target: { type: 'date', value: '2026-11-09' },
   })
+})
+
+test('suggests existing free-text external owners without changing staff or company links', async () => {
+  const user = userEvent.setup()
+  items[0].owners.push(
+    { name: 'FLINT employee', isExternal: false, employeeId: 'E002' },
+    { name: 'Vendor contact', isExternal: true, organizationId: 'CO001' },
+  )
+
+  await openWorkspace()
+  await user.click(
+    screen.getByRole('button', { name: 'Edit owners for Share notes' }),
+  )
+  await user.click(screen.getByRole('button', { name: '+ Add owner' }))
+
+  const ownerInput = screen.getByLabelText('Owner 1 for Share notes')
+  expect(screen.getByRole('checkbox', { name: 'External' })).toBeChecked()
+  expect(ownerInput).toHaveAttribute('list', 'external-owner-suggestions-2')
+  const suggestions = document.getElementById('external-owner-suggestions-2')
+  expect(suggestions?.querySelector('option[value="Jim"]')).toBeInTheDocument()
+  expect(suggestions?.querySelector('option[value="FLINT employee"]')).toBeNull()
+  expect(suggestions?.querySelector('option[value="Vendor contact"]')).toBeNull()
+
+  await user.type(ownerInput, 'Carrier')
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+  await waitFor(() =>
+    expect(items[1].owners).toEqual([
+      { name: 'Carrier', isExternal: true, organizationId: null },
+    ]),
+  )
 })
 
 test('failed target and priority saves retain draft and retry; configured levels appear', async () => {
@@ -382,6 +453,130 @@ test('attention failure rolls back, preserves a retry action, and saves on retry
   )
 })
 
+test('completed items stay struck through and can be hidden from the view', async () => {
+  const user = userEvent.setup()
+  await openWorkspace()
+  await user.click(
+    screen.getByRole('button', {
+      name: 'Change status for Confirm equipment, currently Open',
+    }),
+  )
+  await user.click(screen.getByRole('menuitemradio', { name: 'Complete' }))
+  expect(await screen.findByText('Status changed to Complete.')).toBeInTheDocument()
+  const completedRow = itemRow()
+  expect(completedRow).toHaveClass('max-complete')
+  expect(
+    within(completedRow).getByRole('button', {
+      name: 'Edit title for Confirm equipment',
+    }),
+  ).toHaveClass('max-title')
+
+  await user.click(screen.getByRole('button', { name: 'Filters' }))
+  const hideCompleted = screen.getByLabelText('Hide completed')
+  hideCompleted.focus()
+  await user.keyboard(' ')
+  expect(hideCompleted).toBeChecked()
+  await user.click(screen.getByRole('button', { name: 'Apply' }))
+  expect(
+    screen.queryByRole('button', {
+      name: 'Edit title for Confirm equipment',
+    }),
+  ).not.toBeInTheDocument()
+  expect(
+    screen.getByRole('button', { name: 'Edit title for Share notes' }),
+  ).toBeInTheDocument()
+})
+
+test('archives with a reason, retains the record and retries failed saves/restores', async () => {
+  const user = userEvent.setup()
+  await openWorkspace()
+  failArchive = true
+  await user.click(
+    screen.getByRole('button', { name: 'Archive Confirm equipment' }),
+  )
+  const reason = screen.getByLabelText('Reason for archiving')
+  expect(screen.getByRole('button', { name: 'Archive item' })).toBeDisabled()
+  await user.type(reason, 'Duplicate entry')
+  const archiveButton = screen.getByRole('button', { name: 'Archive item' })
+  archiveButton.focus()
+  await user.keyboard('{Enter}')
+  expect(await screen.findByRole('alert')).toHaveTextContent('Archive failed.')
+  expect(reason).toHaveValue('Duplicate entry')
+  expect(screen.getByRole('button', { name: 'Edit title for Confirm equipment' })).toBeInTheDocument()
+
+  failArchive = false
+  archiveButton.focus()
+  await user.keyboard('{Enter}')
+  expect(
+    screen.queryByRole('button', { name: 'Edit title for Confirm equipment' }),
+  ).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /delete/i })).not.toBeInTheDocument()
+
+  await user.click(screen.getByRole('button', { name: 'Archived items' }))
+  expect(await screen.findByText('Duplicate entry')).toBeInTheDocument()
+  failRestore = true
+  await user.click(screen.getByRole('button', { name: 'Restore' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent('Restore failed.')
+  failRestore = false
+  await user.click(screen.getByRole('button', { name: 'Restore' }))
+  expect(
+    await screen.findByRole('button', {
+      name: 'Edit title for Confirm equipment',
+    }),
+  ).toBeInTheDocument()
+})
+
+test('non-admin users can view retained archive details but not restore', async () => {
+  const user = userEvent.setup()
+  canRestore = false
+  archivedItems = [
+    {
+      item: structuredClone(seed[0]),
+      reason: 'Entered on the wrong board',
+      archivedBy: 'user-2',
+      archivedAt: '2026-11-13T10:00:00Z',
+    },
+  ]
+  await openWorkspace()
+  await user.click(screen.getByRole('button', { name: 'Archived items' }))
+  expect(await screen.findByText('Entered on the wrong board')).toBeInTheDocument()
+  expect(screen.getByText('Only a board admin can restore archived items.')).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Restore' })).not.toBeInTheDocument()
+})
+
+test('empty archived state can be retried after a load failure', async () => {
+  const user = userEvent.setup()
+  failArchivedLoad = true
+  await openWorkspace()
+  await user.click(screen.getByRole('button', { name: 'Archived items' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'Unable to load archived items (error 503).',
+  )
+  await user.click(
+    screen.getByRole('button', { name: 'Retry loading archived items' }),
+  )
+  expect(await screen.findByText('No archived items.')).toBeInTheDocument()
+})
+
+test('disconnected archive save keeps the reason and item for retry', async () => {
+  const user = userEvent.setup()
+  await openWorkspace()
+  await user.click(
+    screen.getByRole('button', { name: 'Archive Confirm equipment' }),
+  )
+  const reason = screen.getByLabelText('Reason for archiving')
+  await user.type(reason, 'Wrong board')
+  fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+  await user.click(screen.getByRole('button', { name: 'Archive item' }))
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'The server cannot be reached.',
+  )
+  expect(reason).toHaveValue('Wrong board')
+  expect(
+    screen.getByRole('button', { name: 'Edit title for Confirm equipment' }),
+  ).toBeInTheDocument()
+})
+
 test('Tab reaches Filters and Add item; cancelled dialog does not create an item', async () => {
   const user = userEvent.setup()
   await openWorkspace()
@@ -473,3 +668,117 @@ test.each(['project-1', 'team-1'])(
     )
   },
 )
+
+test('AT-147 filters board items by all three stored owner types', async () => {
+  const user = userEvent.setup()
+
+  items.push(
+    {
+      ...structuredClone(seed[1]),
+      id: 3,
+      title: 'Staff task',
+      owners: [{ name: 'Alice', isExternal: false }],
+    },
+    {
+      ...structuredClone(seed[1]),
+      id: 4,
+      title: 'Organization task',
+      owners: [
+        {
+          name: 'Carol',
+          isExternal: true,
+          organizationId: 'org-123',
+        },
+      ],
+    },
+  )
+
+  await openWorkspace()
+
+  async function applyOwnerFilter(type: string) {
+    await user.click(
+      screen.getByRole('button', { name: /Filters/ }),
+    )
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: 'Owner type' }),
+      type,
+    )
+    await user.click(screen.getByRole('button', { name: 'Apply' }))
+  }
+
+  await applyOwnerFilter('staff')
+  expect(screen.getByRole('button', {
+    name: 'Edit title for Staff task',
+  })).toBeInTheDocument()
+  expect(screen.queryByRole('button', {
+    name: 'Edit title for Confirm equipment',
+  })).not.toBeInTheDocument()
+
+  await applyOwnerFilter('external')
+  expect(screen.getByRole('button', {
+    name: 'Edit title for Confirm equipment',
+  })).toBeInTheDocument()
+  expect(screen.queryByRole('button', {
+    name: 'Edit title for Organization task',
+  })).not.toBeInTheDocument()
+
+  await applyOwnerFilter('organization')
+  expect(screen.getByRole('button', {
+    name: 'Edit title for Organization task',
+  })).toBeInTheDocument()
+  expect(screen.queryByRole('button', {
+    name: 'Edit title for Staff task',
+  })).not.toBeInTheDocument()
+
+  await user.click(screen.getByRole('button', { name: /Filters/ }))
+  await user.click(screen.getByRole('button', { name: 'Clear' }))
+
+  expect(screen.getByRole('button', {
+    name: 'Edit title for Staff task',
+  })).toBeInTheDocument()
+  expect(screen.getByRole('button', {
+    name: 'Edit title for Organization task',
+  })).toBeInTheDocument()
+})
+
+test('AT-147 combines owner type with priority and attention filters', async () => {
+  const user = userEvent.setup()
+
+  items.push({
+    ...structuredClone(seed[1]),
+    id: 3,
+    title: 'Other external task',
+    owners: [{ name: 'David', isExternal: true }],
+    priority: 'Low',
+    attention: false,
+  })
+
+  await openWorkspace()
+
+  await user.click(screen.getByRole('button', { name: 'Filters' }))
+
+  await user.selectOptions(
+    screen.getByRole('combobox', { name: 'Owner type' }),
+    'external',
+  )
+
+  await user.selectOptions(
+    screen.getByRole('combobox', { name: 'Priority' }),
+    'High',
+  )
+
+  await user.click(screen.getByLabelText('Attention items only'))
+  await user.click(screen.getByRole('button', { name: 'Apply' }))
+
+  expect(screen.getByRole('button', {
+    name: 'Edit title for Confirm equipment',
+  })).toBeInTheDocument()
+
+  expect(screen.queryByRole('button', {
+    name: 'Edit title for Other external task',
+  })).not.toBeInTheDocument()
+
+  expect(screen.queryByRole('button', {
+    name: 'Edit title for Share notes',
+  })).not.toBeInTheDocument()
+})

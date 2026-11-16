@@ -5,8 +5,16 @@ import type { PriorityLevel } from '../services/priorityService'
 import { displayTarget, targetFromInput, type TargetDisplay } from '../target'
 import EmployeePicker from './EmployeePicker'
 import InactiveBadge from './InactiveBadge'
+import OwnerTypeBadge from './OwnerTypeBadge'
 import StatusChooser from './StatusChooser'
 import WorkspaceDialog from './WorkspaceDialog'
+import OrganizationSelect from './OrganizationSelect'
+import {
+  organizationName,
+  type OrganizationsState,
+} from '../services/organizationService'
+import './OwnerChips.css'
+import ItemHistory from './ItemHistory'
 
 type Field = 'title' | 'owners' | 'target' | 'priority' | 'hardDate'
 type Update = Partial<Omit<ItemInput, 'section'>>
@@ -16,13 +24,17 @@ type Props = {
   sections: Section[]
   sectionItems: ActionItem[]
   allItems: ActionItem[]
+  externalOwnerSuggestions?: string[]
   priorities: PriorityLevel[]
   statuses: string[]
-  // Staff owners who have left FLINT, shown with an Inactive marker.
+  organizations: OrganizationsState
+  onRetryOrganizations: () => void
+  // Staff who have left FLINT remain visible as inactive owners.
   inactiveEmployeeIds: ReadonlySet<string>
   moving: boolean
   onUpdate: (update: Update) => Promise<void>
   onStatus: (status: string) => Promise<void>
+  onArchive: (reason: string) => Promise<void>
   onMove: (sectionId: string, beforeId: number | null) => Promise<void>
   onDragOver: (event: DragEvent<HTMLTableRowElement>) => void
   onDrop: (event: DragEvent<HTMLTableRowElement>) => void
@@ -35,6 +47,9 @@ function FieldEditor({
   boardId,
   field,
   priorities,
+  externalOwnerSuggestions,
+  organizations,
+  onRetryOrganizations,
   inactiveEmployeeIds,
   onSave,
   onClose,
@@ -43,56 +58,72 @@ function FieldEditor({
   boardId: string
   field: Field
   priorities: PriorityLevel[]
+  externalOwnerSuggestions: string[]
+  organizations: OrganizationsState
+  onRetryOrganizations: () => void
   inactiveEmployeeIds: ReadonlySet<string>
   onSave: (update: Update) => Promise<void>
   onClose: () => void
 }) {
-  const [text, setText] = useState(
-    field === 'title'
-      ? item.title
-      : field === 'hardDate'
-        ? (item.hardDate ?? '')
-        : item.priority,
-  )
-  const [target, setTarget] = useState<TargetDisplay>(
-    displayTarget(item.target),
-  )
-  const [owners, setOwners] = useState(item.owners.map((o) => ({ ...o })))
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-  async function save(event?: FormEvent) {
-    event?.preventDefault()
-    if (saving) return
-    setError('')
-    setSaving(true)
-    try {
-      const update: Update =
-        field === 'target'
-          ? {
-              target: targetFromInput(
-                target.type,
-                target.value,
-              ) as TargetDisplay,
-            }
-          : field === 'owners'
-            ? {
-                owners: owners
-                  .filter((o) => o.name.trim())
-                  .map((o) => ({ ...o, name: o.name.trim() })),
-              }
+    const [text, setText] = useState(
+        field === 'title'
+            ? item.title
             : field === 'hardDate'
-              ? { hardDate: text || null }
-              : { [field]: text }
-      await onSave(update)
-      onClose()
-    } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : 'Unable to save. Try again.',
-      )
-    } finally {
-      setSaving(false)
+                ? (item.hardDate ?? '')
+                : item.priority,
+    )
+    const [target, setTarget] = useState<TargetDisplay>(
+        displayTarget(item.target),
+    )
+    const [owners, setOwners] = useState(item.owners.map((o) => ({ ...o })))
+    const [saving, setSaving] = useState(false)
+    const [error, setError] = useState('')
+
+    function moveOwner(index: number, direction: -1 | 1) {
+        const nextIndex = index + direction
+        if (nextIndex < 0 || nextIndex >= owners.length) return
+
+        // Change owner order without changing names or staff/external types.
+        setOwners((current) => {
+            const reordered = [...current]
+                ;[reordered[index], reordered[nextIndex]] = [
+                    reordered[nextIndex],
+                    reordered[index],
+                ]
+            return reordered
+        })
+
+        requestAnimationFrame(() => {
+            document.getElementById(`owner-${item.id}-${nextIndex}-${nextIndex === 0 ? 'down' : 'up'}`)?.focus()
+        })
     }
-  }
+
+    async function save(event?: FormEvent) {
+      event?.preventDefault()
+      if (saving) return
+      setError('')
+      setSaving(true)
+      try {
+        if (field === 'owners' && owners.some((owner) => !owner.name.trim())) {
+          throw new Error('Enter a name for each owner or remove the empty row.')
+        }
+        const update: Update =
+          field === 'target'
+            ? { target: targetFromInput(target.type, target.value) as TargetDisplay }
+            : field === 'owners'
+              ? { owners: owners.map((owner) => ({ ...owner, name: owner.name.trim() })) }
+              : field === 'hardDate'
+                ? { hardDate: text || null }
+                : { [field]: text }
+        await onSave(update)
+        onClose()
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : 'Unable to save. Try again.')
+      } finally {
+        setSaving(false)
+      }
+    }
+
   return (
     <form
       className="max-cell-editor"
@@ -156,8 +187,7 @@ function FieldEditor({
             {owners.map((owner, index) => (
               <div className="max-owner-row" key={index}>
                 {owner.employeeId ? (
-                  // Name and type come from FLINT's employee records, so they
-                  // can't be edited here; the owner can only be removed.
+                  // Linked FLINT staff names are managed through employee records.
                   <span className="max-linked-owner">
                     {owner.name}
                     {inactiveEmployeeIds.has(owner.employeeId) && <InactiveBadge />}
@@ -168,6 +198,7 @@ function FieldEditor({
                       autoFocus={index === 0}
                       aria-label={`Owner ${index + 1} for ${item.title}`}
                       maxLength={200}
+                      list={owner.isExternal && !owner.organizationId ? `external-owner-suggestions-${item.id}` : undefined}
                       value={owner.name}
                       onChange={(e) =>
                         setOwners((current) =>
@@ -185,7 +216,13 @@ function FieldEditor({
                           setOwners((current) =>
                             current.map((o, i) =>
                               i === index
-                                ? { ...o, isExternal: e.target.checked }
+                                ? {
+                                    ...o,
+                                    isExternal: e.target.checked,
+                                    organizationId: e.target.checked
+                                      ? o.organizationId
+                                      : null,
+                                  }
                                 : o,
                             ),
                           )
@@ -193,8 +230,41 @@ function FieldEditor({
                       />
                       External
                     </label>
+                    {owner.isExternal && (
+                      <OrganizationSelect
+                        label={`Organization for owner ${index + 1} of ${item.title}`}
+                        value={owner.organizationId}
+                        state={organizations}
+                        onRetry={onRetryOrganizations}
+                        onChange={(organizationId) =>
+                          setOwners((current) =>
+                            current.map((o, i) =>
+                              i === index ? { ...o, organizationId } : o,
+                            ),
+                          )
+                        }
+                      />
+                    )}
                   </>
                 )}
+                <button
+                  id={`owner-${item.id}-${index}-up`}
+                  type="button"
+                  aria-label={`Move owner ${index + 1} up`}
+                  disabled={index === 0}
+                  onClick={() => moveOwner(index, -1)}
+                >
+                  ↑
+                </button>
+                <button
+                  id={`owner-${item.id}-${index}-down`}
+                  type="button"
+                  aria-label={`Move owner ${index + 1} down`}
+                  disabled={index === owners.length - 1}
+                  onClick={() => moveOwner(index, 1)}
+                >
+                  ↓
+                </button>
                 <button
                   type="button"
                   onClick={() =>
@@ -208,13 +278,18 @@ function FieldEditor({
                 </button>
               </div>
             ))}
+            <datalist id={`external-owner-suggestions-${item.id}`}>
+              {externalOwnerSuggestions.map((name) => (
+                <option key={name} value={name} />
+              ))}
+            </datalist>
             <button
               type="button"
               autoFocus={!owners.length}
               onClick={() =>
                 setOwners((current) => [
                   ...current,
-                  { name: '', isExternal: false },
+                  { name: '', isExternal: true, organizationId: null },
                 ])
               }
             >
@@ -283,12 +358,16 @@ export default function BoardItemRow({
   sections,
   sectionItems,
   allItems,
+  externalOwnerSuggestions = [],
   priorities,
   statuses,
+  organizations,
+  onRetryOrganizations,
   inactiveEmployeeIds,
   moving,
   onUpdate,
   onStatus,
+  onArchive,
   onMove,
   onDragOver,
   onDrop,
@@ -297,6 +376,11 @@ export default function BoardItemRow({
 }: Props) {
   const [editing, setEditing] = useState<Field | null>(null)
   const [moveOpen, setMoveOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [archiveOpen, setArchiveOpen] = useState(false)
+  const [archiveReason, setArchiveReason] = useState('')
+  const [archiveError, setArchiveError] = useState('')
+  const [archiving, setArchiving] = useState(false)
   const currentSection = sections.find(
     (s) => s.name === (item.section.trim() || 'General'),
   )
@@ -322,6 +406,9 @@ export default function BoardItemRow({
         boardId={boardId}
         field={field}
         priorities={priorities}
+        externalOwnerSuggestions={externalOwnerSuggestions}
+        organizations={organizations}
+        onRetryOrganizations={onRetryOrganizations}
         inactiveEmployeeIds={inactiveEmployeeIds}
         onSave={onUpdate}
         onClose={() => closeEditor(field)}
@@ -367,6 +454,24 @@ export default function BoardItemRow({
           ? cause.message
           : 'Unable to move item. Try again.',
       )
+    }
+  }
+  async function archive(event: FormEvent) {
+    event.preventDefault()
+    const reason = archiveReason.trim()
+    if (!reason || archiving) return
+    setArchiving(true)
+    setArchiveError('')
+    try {
+      await onArchive(reason)
+      setArchiveOpen(false)
+      setArchiveReason('')
+    } catch (cause) {
+      setArchiveError(
+        cause instanceof Error ? cause.message : 'Unable to archive item. Try again.',
+      )
+    } finally {
+      setArchiving(false)
     }
   }
   const target = displayTarget(item.target)
@@ -435,82 +540,118 @@ export default function BoardItemRow({
                 void move(destination, before ? Number(before) : null)
               }}
             >
-              <label>
-                Destination section
-                <select
-                  aria-label="Destination section"
-                  autoFocus
-                  value={destination}
-                  onChange={(e) => {
-                    setDestination(e.target.value)
-                    setBefore('')
-                  }}
-                >
-                  {sections.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Position
-                <select
-                  aria-label="Position"
-                  value={before}
-                  onChange={(e) => setBefore(e.target.value)}
-                >
-                  <option value="">End of section</option>
-                  {allItems
-                    .filter(
-                      (entry) =>
-                        entry.id !== item.id &&
-                        (entry.section.trim() || 'General') ===
-                          sections.find((s) => s.id === destination)?.name,
-                    )
-                    .map((entry) => (
-                      <option key={entry.id} value={entry.id}>
-                        Before {entry.title}
-                      </option>
-                    ))}
-                </select>
-              </label>
-              {error && (
-                <p role="alert" className="max-error">
-                  {error}
-                </p>
-              )}
-              <div className="max-dialog-actions">
-                <button
-                  type="button"
-                  disabled={moving}
-                  onClick={() => setMoveOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button className="max-primary" type="submit" disabled={moving}>
-                  {moving ? 'Moving…' : 'Move item'}
-                </button>
-              </div>
-            </form>
+                            <label>
+                                Destination section
+                                <select
+                                    aria-label="Destination section"
+                                    autoFocus
+                                    value={destination}
+                                    onChange={(e) => {
+                                        setDestination(e.target.value)
+                                        setBefore('')
+                                    }}
+                                >
+                                    {sections.map((s) => (
+                                        <option key={s.id} value={s.id}>
+                                            {s.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+                            <label>
+                                Position
+                                <select
+                                    aria-label="Position"
+                                    value={before}
+                                    onChange={(e) => setBefore(e.target.value)}
+                                >
+                                    <option value="">End of section</option>
+                                    {allItems
+                                        .filter(
+                                            (entry) =>
+                                                entry.id !== item.id &&
+                                                (entry.section.trim() || 'General') ===
+                                                sections.find((s) => s.id === destination)?.name,
+                                        )
+                                        .map((entry) => (
+                                            <option key={entry.id} value={entry.id}>
+                                                Before {entry.title}
+                                            </option>
+                                        ))}
+                                </select>
+                            </label>
+                            {error && (
+                                <p role="alert" className="max-error">
+                                    {error}
+                                </p>
+                            )}
+                            <div className="max-dialog-actions">
+                                <button
+                                    type="button"
+                                    disabled={moving}
+                                    onClick={() => setMoveOpen(false)}
+                                >
+                                    Cancel
+                                </button>
+                                <button className="max-primary" type="submit" disabled={moving}>
+                                    {moving ? 'Moving…' : 'Move item'}
+                                </button>
+                            </div>
+                        </form>
+                    </WorkspaceDialog>
+                )}
+            </td>
+      <td className="max-title-cell">
+        {cell('title', item.title)}
+        <button
+          type="button"
+          className="item-history-button"
+          aria-label={`View history for ${item.title}`}
+          aria-haspopup="dialog"
+          onClick={() => setHistoryOpen(true)}
+        >
+          History
+        </button>
+        {historyOpen && (
+          <WorkspaceDialog
+            title={`History: ${item.title}`}
+            onClose={() => setHistoryOpen(false)}
+          >
+            <ItemHistory boardId={boardId} itemId={item.id} />
           </WorkspaceDialog>
         )}
       </td>
-      <td className="max-title-cell">{cell('title', item.title)}</td>
       <td>
         {cell(
           'owners',
           item.owners.length
-            ? item.owners.map((owner, index) => (
-                <span key={index}>
-                  {index > 0 && ' / '}
-                  {owner.name}
-                  {owner.isExternal && ' (external)'}
-                  {owner.employeeId && inactiveEmployeeIds.has(owner.employeeId) && (
-                    <> <InactiveBadge /></>
-                  )}
+            ? (
+                <span className="owner-chips">
+                  {item.owners.map((owner, index) => (
+                    <span
+                      key={index}
+                      className={`owner-chip${owner.isExternal ? ' owner-chip-external' : ''}`}
+                    >
+                      <OwnerTypeBadge owner={owner} />
+
+                      {owner.isExternal && owner.organizationId && (
+                        <span className="max-organization-name">
+                          {' — '}
+                          {organizationName(
+                            organizations.organizations,
+                            owner.organizationId,
+                          )}
+                        </span>
+                      )}
+
+                      {owner.employeeId &&
+                        inactiveEmployeeIds.has(owner.employeeId) && (
+                          <InactiveBadge />
+                        )}
+                    </span>
+                  ))}
                 </span>
-              ))
+              )
             : 'Assign owners',
         )}
       </td>
@@ -567,6 +708,62 @@ export default function BoardItemRow({
           <button type="button" onClick={() => void attention(retryAttention)}>
             Retry attention
           </button>
+        )}
+        <button
+          type="button"
+          aria-label={`Archive ${item.title}`}
+          onClick={() => {
+            setArchiveReason('')
+            setArchiveError('')
+            setArchiveOpen(true)
+          }}
+        >
+          Archive
+        </button>
+        {archiveOpen && (
+          <WorkspaceDialog
+            title={`Archive ${item.title}`}
+            busy={archiving}
+            onClose={() => setArchiveOpen(false)}
+          >
+            <form className="max-form" onSubmit={(event) => void archive(event)}>
+              <p>
+                This item and its status history will be retained and can be
+                restored by a board admin.
+              </p>
+              <label>
+                Reason for archiving
+                <textarea
+                  autoFocus
+                  required
+                  maxLength={2000}
+                  value={archiveReason}
+                  onChange={(event) => setArchiveReason(event.target.value)}
+                />
+              </label>
+              {archiveError && (
+                <p role="alert" className="max-error">
+                  {archiveError}
+                </p>
+              )}
+              <div className="max-dialog-actions">
+                <button
+                  type="button"
+                  disabled={archiving}
+                  onClick={() => setArchiveOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="max-primary"
+                  type="submit"
+                  disabled={archiving || !archiveReason.trim()}
+                >
+                  {archiving ? 'Archiving…' : 'Archive item'}
+                </button>
+              </div>
+            </form>
+          </WorkspaceDialog>
         )}
       </td>
     </tr>

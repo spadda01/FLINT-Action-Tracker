@@ -76,7 +76,7 @@ describe('Assigning FLINT staff as owners', () => {
     it('marks an owner who has left FLINT as inactive', async () => {
         render(<BoardWorkspace boardId="project-1" />)
 
-        await waitFor(() => expect(ownersCell()).toHaveTextContent('Dana Whitfield Inactive'))
+        await waitFor(() => expect(ownersCell()).toHaveTextContent(/Dana Whitfield.*Inactive/))
         expect(ownersCell()).not.toHaveTextContent('James Ortiz Inactive')
         // One lookup for every owner on the board.
         expect(fetchMock).toHaveBeenCalledWith('/api/boards/project-1/employees?ids=E005%2CE008', expect.anything())
@@ -86,7 +86,10 @@ describe('Assigning FLINT staff as owners', () => {
         lookupFails = true
         render(<BoardWorkspace boardId="project-1" />)
 
-        await waitFor(() => expect(ownersCell()).toHaveTextContent('James Ortiz / Dana Whitfield'))
+        await waitFor(() => {
+            expect(ownersCell()).toHaveTextContent('James Ortiz')
+            expect(ownersCell()).toHaveTextContent('Dana Whitfield')
+        })
         expect(ownersCell()).not.toHaveTextContent('Inactive')
     })
 

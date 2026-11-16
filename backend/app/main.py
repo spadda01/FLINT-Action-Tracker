@@ -1,8 +1,12 @@
 import os
+from datetime import datetime, timezone
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 
-from app.api.priorities import router as priorities_router, priority_service as configured_priorities
+from app.api.priorities import (
+    router as priorities_router,
+    priority_service as configured_priorities,
+)
 from app.adapters.boards import BoardRepository, MockBoardRepository
 from app.api.boards import get_board_service, router as boards_router
 from app.api.item_status import get_status_service, router as item_status_router
@@ -12,10 +16,19 @@ from app.services.board_service import BoardService
 from app.services.boards import list_accessible_boards
 from app.services.service_factory import create_services
 from app.adapters.mock_action_items import (
+    archive_mock_action_item,
     create_mock_action_item,
     get_mock_action_items,
+    list_mock_archived_action_items,
+    restore_mock_action_item,
 )
-from app.schemas.action_item import ActionItem, ActionItemCreate, ActionItemUpdate
+from app.schemas.action_item import (
+    ActionItem,
+    ActionItemCreate,
+    ActionItemUpdate,
+    ArchiveItemRequest,
+    ArchivedActionItemsResponse,
+)
 from app.adapters.board_sections import WORKSPACE_LOCK, ensure_section
 from app.api.workspace import router as workspace_router
 from app.api.employees import get_employee_directory, router as employees_router
@@ -25,13 +38,68 @@ from app.services.status_service import (
     StatusService,
     StatusValidationError,
 )
-from app.services.board_access import MOCK_EMPLOYEE_IDS, can_open_created_board
-
+from app.adapters.interfaces import CompanyAdapter
+from app.services.board_access import (
+    MOCK_EMPLOYEE_IDS,
+    can_open_created_board,
+    is_board_admin,
+)
+from app.services.item_history_service import item_history_service
 
 app = FastAPI(title="FLINT Action Tracker API")
 app.include_router(priorities_router)
 app.include_router(workspace_router)
 services = create_services()
+
+
+def get_company_adapter() -> CompanyAdapter:
+    # Override this dependency in tests or when a real adapter is configured.
+    return services["companies"]
+
+
+def validate_owner_organizations(
+    owners,
+    companies: CompanyAdapter,
+    existing_owners=None,
+) -> None:
+    """Preserve existing company links while validating new assignments."""
+    if not owners:
+        return
+
+    existing_links = {
+        (owner.name, owner.isExternal, owner.organizationId)
+        for owner in (existing_owners or [])
+        if owner.organizationId is not None
+    }
+
+    new_links = []
+
+    for owner in owners:
+        if owner.organizationId is None:
+            continue
+
+        if not owner.isExternal:
+            raise HTTPException(
+                status_code=422,
+                detail="Only external owners can be assigned an organization.",
+            )
+
+        link = (owner.name, owner.isExternal, owner.organizationId)
+
+        if link not in existing_links:
+            new_links.append(owner.organizationId)
+
+    if not new_links:
+        return
+
+    known = {company["id"] for company in companies.get_companies()}
+
+    for organization_id in new_links:
+        if organization_id not in known:
+            raise HTTPException(
+                status_code=422,
+                detail="Choose an organization from the FLINT list.",
+            )
 
 
 def require_mock_mode() -> None:
@@ -69,13 +137,13 @@ def has_board_access(
     repository: BoardRepository,
     service: BoardService,
 ) -> bool:
-    if any(board.id == board_id for board in list_accessible_boards(user_id, repository)):
+    if any(
+        board.id == board_id for board in list_accessible_boards(user_id, repository)
+    ):
         return True
 
     saved_board = service.get_board(board_id)
-    return bool(
-        saved_board and can_open_created_board(saved_board, user_id, service)
-    )
+    return bool(saved_board and can_open_created_board(saved_board, user_id, service))
 
 
 # Keep team-board creation on the shared router, with mock identity checks.
@@ -102,9 +170,17 @@ def get_boards(
         for board in service.repository.list_boards()
         if can_open_created_board(board, user_id, service)
     )
-    return [board.model_copy(update={"openItemCount": sum(
-        item.status != "Complete" for item in get_mock_action_items(board.id)
-    )}) for board in boards]
+    return [
+        board.model_copy(
+            update={
+                "openItemCount": sum(
+                    item.status != "Complete"
+                    for item in get_mock_action_items(board.id)
+                )
+            }
+        )
+        for board in boards
+    ]
 
 
 @app.get("/api/boards/{board_id}", response_model=Board | BoardSummary)
@@ -116,16 +192,27 @@ def get_board(
 ) -> Board | BoardSummary:
     for board in list_accessible_boards(user_id, repository):
         if board.id == board_id:
-            return board.model_copy(update={"openItemCount": sum(
-                item.status != "Complete" for item in get_mock_action_items(board_id)
-            )})
+            return board.model_copy(
+                update={
+                    "openItemCount": sum(
+                        item.status != "Complete"
+                        for item in get_mock_action_items(board_id)
+                    )
+                }
+            )
 
     # Preserve the saved board's full details, but only for an allowed member.
     saved_board = service.get_board(board_id)
     if saved_board and can_open_created_board(saved_board, user_id, service):
-        return Board.model_validate({**saved_board, "openItemCount": sum(
-            item.status != "Complete" for item in get_mock_action_items(board_id)
-        )})
+        return Board.model_validate(
+            {
+                **saved_board,
+                "openItemCount": sum(
+                    item.status != "Complete"
+                    for item in get_mock_action_items(board_id)
+                ),
+            }
+        )
     raise HTTPException(status_code=404, detail="Board not found.")
 
 
@@ -160,9 +247,11 @@ def create_board_item(
     repository: BoardRepository = Depends(get_board_repository),
     service: BoardService = Depends(get_board_service),
     status_service: StatusService = Depends(get_status_service),
+    companies: CompanyAdapter = Depends(get_company_adapter),
     directory: EmployeeDirectory = Depends(get_employee_directory),
 ) -> ActionItem:
     require_board_access(board_id, user_id, repository, service)
+    validate_owner_organizations(new_item.owners, companies)
 
     if not new_item.title.strip():
         raise HTTPException(
@@ -182,7 +271,16 @@ def create_board_item(
         raise HTTPException(status_code=422, detail=error.message) from error
     with WORKSPACE_LOCK:
         ensure_section(board_id, new_item.section)
-        return create_mock_action_item(board_id, new_item)
+        created_item = create_mock_action_item(board_id, new_item)
+        # a new items fields have no previous values
+        item_history_service.record_changes(
+            board_id=board_id,
+            item_id=created_item.id,
+            actor_id=user_id,
+            before={},
+            after=created_item.model_dump(mode="json"),
+        )
+        return created_item
 
 
 @app.patch("/api/boards/{board_id}/items/{item_id}", response_model=ActionItem)
@@ -194,6 +292,7 @@ def update_board_item_target(
     repository: BoardRepository = Depends(get_board_repository),
     service: BoardService = Depends(get_board_service),
     status_service: StatusService = Depends(get_status_service),
+    companies: CompanyAdapter = Depends(get_company_adapter),
     directory: EmployeeDirectory = Depends(get_employee_directory),
 ) -> ActionItem:
     # Verify board access before allowing an update.
@@ -207,26 +306,121 @@ def update_board_item_target(
             raise HTTPException(status_code=422, detail=str(error)) from error
 
     with WORKSPACE_LOCK:
-        item = next((item for item in get_mock_action_items(board_id) if item.id == item_id), None)
+        item = next(
+            (item for item in get_mock_action_items(board_id) if item.id == item_id),
+            None,
+        )
         if item is None:
             raise HTTPException(status_code=404, detail="Action item not found.")
-        # Checked against the current owners, so people who have since left
-        # can stay on this item but can't be newly added.
+        # validate owner assignments before modifying the item
         if update.owners is not None:
             try:
                 update.owners = directory.check_owners(update.owners, item.owners)
             except OwnerAssignmentError as error:
                 raise HTTPException(status_code=422, detail=error.message) from error
+
+            validate_owner_organizations(
+                update.owners,
+                companies,
+                existing_owners=item.owners,
+            )
+
+        # capture the original values for item history
+        before = item.model_dump(mode="json")
         if update.status is not None:
             try:
                 status_service.change_status(board_id, item_id, update.status, user_id)
             except StatusValidationError as error:
                 raise HTTPException(status_code=422, detail=error.message) from error
             except ItemNotFoundError as error:
-                raise HTTPException(status_code=404, detail="Action item not found.") from error
+                raise HTTPException(
+                    status_code=404, detail="Action item not found."
+                ) from error
         for field in update.model_fields_set - {"status"}:
             setattr(item, field, getattr(update, field))
+
+        item_history_service.record_changes(
+            board_id=board_id,
+            item_id=item_id,
+            actor_id=user_id,
+            before=before,
+            after=item.model_dump(mode="json"),
+        )
         return item
+
+
+@app.get(
+    "/api/boards/{board_id}/items/archived",
+    response_model=ArchivedActionItemsResponse,
+)
+def get_archived_board_items(
+    board_id: str,
+    user_id: str = Depends(get_current_user_id),
+    repository: BoardRepository = Depends(get_board_repository),
+    service: BoardService = Depends(get_board_service),
+) -> ArchivedActionItemsResponse:
+    require_board_access(board_id, user_id, repository, service)
+    with WORKSPACE_LOCK:
+        archived_items = list_mock_archived_action_items(board_id)
+    return ArchivedActionItemsResponse(
+        archivedItems=archived_items,
+        canRestore=is_board_admin(board_id, user_id, service),
+    )
+
+
+@app.post(
+    "/api/boards/{board_id}/items/{item_id}/archive",
+    response_model=ActionItem,
+)
+def archive_board_item(
+    board_id: str,
+    item_id: int,
+    data: ArchiveItemRequest,
+    user_id: str = Depends(get_current_user_id),
+    repository: BoardRepository = Depends(get_board_repository),
+    service: BoardService = Depends(get_board_service),
+) -> ActionItem:
+    require_board_access(board_id, user_id, repository, service)
+    with WORKSPACE_LOCK:
+        record = archive_mock_action_item(
+            board_id,
+            item_id,
+            data.reason,
+            user_id,
+            datetime.now(timezone.utc).isoformat(),
+        )
+    if record is None:
+        raise HTTPException(status_code=404, detail="Action item not found.")
+    return record["item"]
+
+
+@app.post(
+    "/api/boards/{board_id}/items/{item_id}/restore",
+    response_model=ActionItem,
+)
+def restore_board_item(
+    board_id: str,
+    item_id: int,
+    user_id: str = Depends(get_current_user_id),
+    repository: BoardRepository = Depends(get_board_repository),
+    service: BoardService = Depends(get_board_service),
+) -> ActionItem:
+    require_board_access(board_id, user_id, repository, service)
+    if not is_board_admin(board_id, user_id, service):
+        raise HTTPException(
+            status_code=403,
+            detail="Only a board admin can restore archived items.",
+        )
+    with WORKSPACE_LOCK:
+        item = restore_mock_action_item(
+            board_id,
+            item_id,
+            user_id,
+            datetime.now(timezone.utc).isoformat(),
+        )
+    if item is None:
+        raise HTTPException(status_code=404, detail="Archived item not found.")
+    return item
 
 
 def check_access(x_mock_role: str = Header(default="viewer")):
@@ -257,3 +451,8 @@ def get_groups():
 @app.get("/api/organizations", dependencies=[Depends(check_access)])
 def get_organizations():
     return services["organizations"].get_organizations()
+
+
+@app.get("/api/companies", dependencies=[Depends(check_access)])
+def get_companies(companies: CompanyAdapter = Depends(get_company_adapter)):
+    return companies.get_companies()

@@ -42,10 +42,11 @@ Board and item data use in-memory mock storage and reset on backend restart. Rec
 
 - Click a title, owners, target, hard date, or priority to edit it. Save confirms the change; failed saves keep the draft and offer Retry. Text targets preserve whitespace and line breaks.
 - In the owners editor, **Add FLINT staff** searches the mock employee records by name and links the person to their record. People who have left FLINT are marked Inactive: they stay on items they already own but can't be newly assigned. Free-text owners still work for people outside FLINT.
-- Status and attention controls save to the shared item store. The add-item dialog saves all entered fields; title-only quick entry starts with Open status and Medium priority.
+- Status and attention controls save to the shared item store. Complete items remain in place with a struck-through title; use Filters → Hide completed to hide them without deleting them. The add-item dialog saves all entered fields; title-only quick entry starts with Open status and Medium priority.
+- Use an item's Archive action for a mistaken entry and provide a reason. Archived item details and status history are retained; board members can review the archive record, while only the board admin can restore the item. There is no delete action.
 - Drag a row's move handle to another row or an empty section. Keyboard users can open the handle's Move dialog, or use Alt+Up/Down to reorder within a section. Clear search, filters and sorting before moving items so the saved order is unambiguous.
 - Add, rename and order sections with the controls beside their headings. Quick entry is available in each section and keeps focus after Enter.
-- Filters apply attention/priority filtering and target/priority sorting. Search and filter selections are temporary view state and reset on page refresh.
+- Filters apply attention/completed/priority filtering and target/priority sorting. Search and filter selections are temporary view state and reset on page refresh.
 - Team-board creation uses a keyboard-accessible modal styled from `Project_Board/` with the shared member adapters and save service.
 - Status Board and Meeting remain disabled until those views are implemented. The old standalone apps are retained as reference implementations.
 
@@ -60,6 +61,21 @@ npm --prefix frontend run lint
 npm --prefix frontend run build
 ```
 
+### Assigning an organization to an external owner
+
+Story: a curator picks a known company so the same engineer or vendor is spelled consistently across boards.
+
+**User guide.** On any project or team board, tick **External** on an owner (in the Add item dialog or by clicking the Owners cell) and choose the company from the **Organization** dropdown. The company name then appears beside the owner, and board search matches it. Choosing "No organization" is allowed. Unticking External clears the organization. Keyboard: Tab to the dropdown, use the arrow keys or type to choose; Ctrl+Enter saves the inline editor and Escape cancels it.
+
+**Error states.** If the company list cannot be loaded, the dropdown is disabled and shows "Unable to load organizations" with a **Retry** button; the rest of the board keeps working. If a save is rejected (for example the company is no longer in the list), the message is shown, the draft is kept and **Retry save** is offered. A saved organization that is missing from the list is kept and labelled "(not in list)".
+
+**Architecture / runbook.**
+- Backend: `CompanyAdapter` (`backend/app/adapters/interfaces.py`) with `MockCompanyService` (`mock_companies.py`) registered as `services["companies"]`. `GET /api/companies` returns `[{id, name}]`. Tests or a future real adapter replace it through the `get_company_adapter` dependency in `backend/app/main.py`.
+- Owners gain an optional `organizationId`. Create and update reject unknown IDs, and IDs on non-external owners, with 422. Existing owners without one return `organizationId: null`.
+- Frontend: `services/organizationService.ts` loads the list, and `components/OrganizationSelect.tsx` is the shared dropdown used by `BoardItemDialog` and `BoardItemRow`. `BoardWorkspace` loads the list once per board, separately from board data.
+- Data: the companies in `mock_companies.py` are fictional placeholders. The real FLINT list will be supplied later as a new `CompanyAdapter`; do not commit real company data or credentials.
+- Oracle Primavera Cloud (OPC) has no connection to this feature and receives no writes.
+
 ### maxgrot branch
 - Project Board creation
 - Allowing for "no project" specifically
@@ -69,7 +85,7 @@ npm --prefix frontend run build
 #### AT-34 subtask AT-36
 - The Team Create board is now functional with drop downs, multiple field entries, and individual text entries.
 
-### sorey branch
+### sorey AT-66 branch
 - Set a target as text or a date
 
 #### AT-66 subtask AT-152
@@ -89,3 +105,15 @@ npm --prefix frontend run build
   3. Select and save a calendar date.
   4. Sort by target; verify dates appear first chronologically and text targets follow.
   5. Use Tab and Enter to operate the sort and save controls. Automated tests cover the relevant error and empty states.
+
+  ### sorey AT-58 branch
+  - Complete an item without deleting it
+
+  #### AT-58 subtask AT-128
+  - Completed items are struck through
+  - Toggle to hide completed items
+
+  #### AT-58 subtask AT-129
+  - Items are archived instead of deleted
+  - Archived items retain history and reason for archival
+  - Archived items can be restored by board admins
