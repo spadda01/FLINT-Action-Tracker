@@ -61,8 +61,8 @@ test('shows staff and external owner chips', () => {
 
     expect(screen.getByText('Austin')).toBeTruthy()
     expect(screen.getByText('Sarah')).toBeTruthy()
-    expect(screen.getByText('Staff')).toBeTruthy()
-    expect(screen.getByText('External')).toBeTruthy()
+    expect(screen.getByLabelText('Austin: Staff member')).toHaveAttribute('aria-describedby')
+    expect(screen.getByLabelText('Sarah: Free-text external contact')).toHaveAttribute('aria-describedby')
 })
 
 test('reorders owners using the keyboard and preserves their types', async () => {
