@@ -45,6 +45,7 @@ import { useInactiveEmployees } from '../services/useInactiveEmployees'
 import { dateFirstSorting, displayTarget } from '../target'
 import BoardItemDialog from './BoardItemDialog'
 import BoardItemRow from './BoardItemRow'
+import { getOwnerType } from '../services/ownerTypes'
 import WorkspaceDialog from './WorkspaceDialog'
 import './BoardWorkspace.css'
 
@@ -52,12 +53,14 @@ type Filter = {
     attention: boolean
     hideCompleted: boolean
     priority: string
+    ownerType: string
     sort: string
 }
 const EMPTY_FILTER: Filter = {
     attention: false,
     hideCompleted: false,
     priority: '',
+    ownerType: '',
     sort: '',
 }
 
@@ -182,6 +185,7 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
                 (!filters.attention || item.attention) &&
                 (!filters.hideCompleted || item.status !== 'Complete') &&
                 (!filters.priority || item.priority === filters.priority) &&
+                (!filters.ownerType || item.owners.some((owner) => getOwnerType(owner) === filters.ownerType)) &&
                 (!query ||
                     [
                         item.title,
@@ -213,6 +217,7 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
         filters.attention ||
         filters.hideCompleted ||
         !!filters.priority ||
+        !!filters.ownerType ||
         !!filters.sort
 
     async function update(
@@ -497,6 +502,7 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
                     {filters.attention ||
                         filters.hideCompleted ||
                         filters.priority ||
+                        filters.ownerType ||
                         filters.sort
                         ? ' •'
                         : ''}
@@ -885,6 +891,24 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
                                 {priorities.map((priority) => (
                                     <option key={priority.name}>{priority.name}</option>
                                 ))}
+                            </select>
+                        </label>
+                        <label>
+                            Owner type
+                            <select
+                                aria-label="Owner type"
+                                value={filterDraft.ownerType}
+                                onChange={(event) =>
+                                    setFilterDraft((current) => ({
+                                        ...current,
+                                        ownerType: event.target.value,
+                                    }))
+                                }
+                            >
+                                <option value="">All owner types</option>
+                                <option value="staff">Staff</option>
+                                <option value="external">Free-text external</option>
+                                <option value="organization">Organization-backed</option>
                             </select>
                         </label>
                         <label>
