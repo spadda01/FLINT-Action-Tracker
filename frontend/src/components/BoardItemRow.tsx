@@ -23,6 +23,7 @@ type Props = {
   sections: Section[]
   sectionItems: ActionItem[]
   allItems: ActionItem[]
+  externalOwnerSuggestions?: string[]
   priorities: PriorityLevel[]
   statuses: string[]
   organizations: OrganizationsState
@@ -45,6 +46,7 @@ function FieldEditor({
   boardId,
   field,
   priorities,
+  externalOwnerSuggestions,
   organizations,
   onRetryOrganizations,
   inactiveEmployeeIds,
@@ -55,6 +57,7 @@ function FieldEditor({
   boardId: string
   field: Field
   priorities: PriorityLevel[]
+  externalOwnerSuggestions: string[]
   organizations: OrganizationsState
   onRetryOrganizations: () => void
   inactiveEmployeeIds: ReadonlySet<string>
@@ -194,6 +197,7 @@ function FieldEditor({
                       autoFocus={index === 0}
                       aria-label={`Owner ${index + 1} for ${item.title}`}
                       maxLength={200}
+                      list={owner.isExternal && !owner.organizationId ? `external-owner-suggestions-${item.id}` : undefined}
                       value={owner.name}
                       onChange={(e) =>
                         setOwners((current) =>
@@ -273,13 +277,18 @@ function FieldEditor({
                 </button>
               </div>
             ))}
+            <datalist id={`external-owner-suggestions-${item.id}`}>
+              {externalOwnerSuggestions.map((name) => (
+                <option key={name} value={name} />
+              ))}
+            </datalist>
             <button
               type="button"
               autoFocus={!owners.length}
               onClick={() =>
                 setOwners((current) => [
                   ...current,
-                  { name: '', isExternal: false, organizationId: null },
+                  { name: '', isExternal: true, organizationId: null },
                 ])
               }
             >
@@ -348,6 +357,7 @@ export default function BoardItemRow({
   sections,
   sectionItems,
   allItems,
+  externalOwnerSuggestions = [],
   priorities,
   statuses,
   organizations,
@@ -395,6 +405,7 @@ export default function BoardItemRow({
         boardId={boardId}
         field={field}
         priorities={priorities}
+        externalOwnerSuggestions={externalOwnerSuggestions}
         organizations={organizations}
         onRetryOrganizations={onRetryOrganizations}
         inactiveEmployeeIds={inactiveEmployeeIds}
