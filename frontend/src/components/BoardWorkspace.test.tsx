@@ -295,9 +295,7 @@ test('suggests existing free-text external owners without changing staff or comp
   )
   await user.click(screen.getByRole('button', { name: '+ Add owner' }))
 
-  const ownerInput = screen.getByRole('textbox', {
-    name: 'Owner 1 for Share notes',
-  })
+  const ownerInput = screen.getByLabelText('Owner 1 for Share notes')
   expect(screen.getByRole('checkbox', { name: 'External' })).toBeChecked()
   expect(ownerInput).toHaveAttribute('list', 'external-owner-suggestions-2')
   const suggestions = document.getElementById('external-owner-suggestions-2')
