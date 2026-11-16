@@ -76,9 +76,7 @@ test('reorders owners using the keyboard and preserves their types', async () =>
     await user.keyboard('{Enter}')
 
     expect(
-        (screen.getByRole('textbox', {
-            name: 'Owner 1 for Review drawings',
-        }) as HTMLInputElement).value,
+        (screen.getByLabelText('Owner 1 for Review drawings') as HTMLInputElement).value,
     ).toBe('Sarah')
 
     await user.click(screen.getByRole('button', { name: 'Save' }))
@@ -105,7 +103,7 @@ test('rejects a blank owner without submitting the draft', async () => {
     )
     expect(onUpdate).not.toHaveBeenCalled()
     expect(
-        screen.getByRole('textbox', { name: 'Owner 3 for Review drawings' }),
+        screen.getByLabelText('Owner 3 for Review drawings'),
     ).toBeTruthy()
 })
 
