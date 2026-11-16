@@ -282,6 +282,36 @@ test('opens add dialog with keyboard, rejects spaces and sends every chosen fiel
   })
 })
 
+test('suggests existing free-text external owners without changing staff or company links', async () => {
+  const user = userEvent.setup()
+  items[0].owners.push(
+    { name: 'FLINT employee', isExternal: false, employeeId: 'E002' },
+    { name: 'Vendor contact', isExternal: true, organizationId: 'CO001' },
+  )
+
+  await openWorkspace()
+  await user.click(
+    screen.getByRole('button', { name: 'Edit owners for Share notes' }),
+  )
+  await user.click(screen.getByRole('button', { name: '+ Add owner' }))
+
+  const ownerInput = screen.getByLabelText('Owner 1 for Share notes')
+  expect(screen.getByRole('checkbox', { name: 'External' })).toBeChecked()
+  expect(ownerInput).toHaveAttribute('list', 'external-owner-suggestions-2')
+  const suggestions = document.getElementById('external-owner-suggestions-2')
+  expect(suggestions?.querySelector('option[value="Jim"]')).toBeInTheDocument()
+  expect(suggestions?.querySelector('option[value="FLINT employee"]')).toBeNull()
+  expect(suggestions?.querySelector('option[value="Vendor contact"]')).toBeNull()
+
+  await user.type(ownerInput, 'Carrier')
+  await user.click(screen.getByRole('button', { name: 'Save' }))
+  await waitFor(() =>
+    expect(items[1].owners).toEqual([
+      { name: 'Carrier', isExternal: true, organizationId: null },
+    ]),
+  )
+})
+
 test('failed target and priority saves retain draft and retry; configured levels appear', async () => {
   const user = userEvent.setup()
   await openWorkspace()

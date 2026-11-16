@@ -165,6 +165,16 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
         [boardId],
     )
 
+    // Suggest distinct free-text external owners already assigned on this board.
+    const externalOwnerSuggestions = useMemo(() => {
+        const names = items
+            .flatMap((item) => item.owners)
+            .filter((owner) => owner.isExternal && !owner.organizationId)
+            .map((owner) => owner.name.trim())
+            .filter(Boolean)
+        return [...new Set(names)]
+    }, [items])
+
     const visibleItems = useMemo(() => {
         const query = search.trim().toLowerCase()
         const selected = items.filter(
@@ -725,6 +735,7 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
                                                 sections={sections}
                                                 sectionItems={orderingRestricted ? [] : sectionItems}
                                                 allItems={items}
+                                                externalOwnerSuggestions={externalOwnerSuggestions}
                                                 priorities={priorities}
                                                 statuses={statuses}
                                                 organizations={organizations}
