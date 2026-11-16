@@ -5,6 +5,7 @@ import type { PriorityLevel } from '../services/priorityService'
 import { displayTarget, targetFromInput, type TargetDisplay } from '../target'
 import EmployeePicker from './EmployeePicker'
 import InactiveBadge from './InactiveBadge'
+import OwnerTypeBadge from './OwnerTypeBadge'
 import StatusChooser from './StatusChooser'
 import WorkspaceDialog from './WorkspaceDialog'
 import OrganizationSelect from './OrganizationSelect'
@@ -631,11 +632,7 @@ export default function BoardItemRow({
                       key={index}
                       className={`owner-chip${owner.isExternal ? ' owner-chip-external' : ''}`}
                     >
-                      {owner.name}
-
-                      <span className="owner-chip-type">
-                        {owner.isExternal ? 'External' : 'Staff'}
-                      </span>
+                      <OwnerTypeBadge owner={owner} />
 
                       {owner.isExternal && owner.organizationId && (
                         <span className="max-organization-name">
