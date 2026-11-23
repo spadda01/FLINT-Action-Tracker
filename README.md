@@ -46,11 +46,14 @@ Board and item data use in-memory mock storage and reset on backend restart. Rec
 - Use an item's Archive action for a mistaken entry and provide a reason. Archived item details and status history are retained; board members can review the archive record, while only the board admin can restore the item. There is no delete action.
 - Drag a row's move handle to another row or an empty section. Keyboard users can open the handle's Move dialog, or use Alt+Up/Down to reorder within a section. Clear search, filters and sorting before moving items so the saved order is unambiguous.
 - Add, rename and order sections with the controls beside their headings. Quick entry is available in each section and keeps focus after Enter.
+- Click a section name or focus it and press Enter or Space to collapse or expand it on project and team boards. The header shows matching items out of the section total and how many items in the whole section are flagged for attention, even when collapsed.
 - Filters apply attention/completed/priority filtering and target/priority sorting. Search and filter selections are temporary view state and reset on page refresh.
 - Team-board creation uses a keyboard-accessible modal styled from `Project_Board/` with the shared member adapters and save service.
 - Status Board and Meeting remain disabled until those views are implemented. The old standalone apps are retained as reference implementations.
 
 Item edits, item ordering and section changes survive browser refresh while the mock backend runs. Mock storage is still in memory and resets on backend restart. The earlier acceptance audit in `docs/testing/` records the specific commit it tested; it is a historical snapshot rather than certification of newer changes.
+
+Section collapse preferences are stored in the current browser by signed-in user, board and section ID. They survive reopening a board in that browser. If browser storage is unavailable, the controls still work and a warning appears when a preference cannot be saved.
 
 Validation:
 

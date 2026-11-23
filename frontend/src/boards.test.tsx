@@ -149,6 +149,14 @@ test('keyboard selection opens the correct board and records its history', async
             return json([])
         }
 
+        if (path.endsWith('/sections')) {
+            return json([{ id: 'general', name: 'General' }])
+        }
+
+        if (path.endsWith('/statuses') || path === '/api/priorities') {
+            return json([])
+        }
+
         const board = boards.find(
             (item) => path === `/api/boards/${item.id}`,
         )
@@ -182,6 +190,10 @@ test('keyboard selection opens the correct board and records its history', async
     expect(window.location.hash).toBe('#/boards/project-2')
     expect(document.activeElement).toBe(heading)
 
+    const toggle = await screen.findByRole('button', { name: 'General' })
+    await user.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+
     await waitFor(() => {
         const history = JSON.parse(
             localStorage.getItem('flint.recentBoards.user-1') ?? '[]',
@@ -198,6 +210,12 @@ test('keyboard selection opens the correct board and records its history', async
     expect(within(projects).getAllByRole('button')[0].textContent).toBe(
         'Sample Office Renovation',
     )
+
+    await user.click(within(projects).getByRole('button', { name: 'Sample Office Renovation' }))
+    expect(await screen.findByRole('button', { name: 'General' })).toHaveAttribute(
+        'aria-expanded',
+        'false',
+    )
 })
 
 test('a denied board URL shows an error without recording a visit', async () => {
@@ -210,6 +228,8 @@ test('a denied board URL shows an error without recording a visit', async () => 
         'unavailable or you do not have access',
     )
     expect(fetch).toHaveBeenCalledWith('/api/boards/restricted')
+    expect(fetch).not.toHaveBeenCalledWith('/api/boards/restricted/sections')
+    expect(screen.queryByRole('button', { expanded: true })).not.toBeInTheDocument()
 
     const history = JSON.parse(
         localStorage.getItem('flint.recentBoards.user-1') ?? '[]',

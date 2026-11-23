@@ -187,7 +187,12 @@ function App() {
             </button>
           </section>
         ) : boardId ? (
-          <BoardPage key={boardId} boardId={boardId} onOpened={recordOpened} />
+          <BoardPage
+            key={JSON.stringify([userId, boardId])}
+            boardId={boardId}
+            userId={userId}
+            onOpened={recordOpened}
+          />
         ) : (
           <>
             <form

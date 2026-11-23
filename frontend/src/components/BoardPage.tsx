@@ -5,10 +5,11 @@ import BoardWorkspace from './BoardWorkspace'
 
 type BoardPageProps = {
   boardId: string
+  userId: string
   onOpened: (boardId: string) => void
 }
 
-function BoardPage({ boardId, onOpened }: BoardPageProps) {
+function BoardPage({ boardId, userId, onOpened }: BoardPageProps) {
   const [board, setBoard] = useState<Board | null>(null)
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(true)
@@ -112,7 +113,7 @@ function BoardPage({ boardId, onOpened }: BoardPageProps) {
                 Meeting
               </button>
             </nav>
-            <BoardWorkspace boardId={board.id} />
+            <BoardWorkspace boardId={board.id} userId={userId} />
 
           </section>
         )

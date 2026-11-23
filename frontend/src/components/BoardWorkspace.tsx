@@ -42,6 +42,7 @@ import {
     type Section,
 } from '../services/workspaceService'
 import { useInactiveEmployees } from '../services/useInactiveEmployees'
+import { readCollapsedSections, saveCollapsedSections } from '../services/sectionCollapse'
 import { dateFirstSorting, displayTarget } from '../target'
 import BoardItemDialog from './BoardItemDialog'
 import BoardItemRow from './BoardItemRow'
@@ -64,7 +65,7 @@ const EMPTY_FILTER: Filter = {
     sort: '',
 }
 
-export default function BoardWorkspace({ boardId }: { boardId: string }) {
+export default function BoardWorkspace({ boardId, userId }: { boardId: string; userId: string }) {
     const [items, setItems] = useState<ActionItem[]>([])
     const [sections, setSections] = useState<Section[]>([])
     const [priorities, setPriorities] = useState<PriorityLevel[]>([])
@@ -88,7 +89,8 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
     const [sectionName, setSectionName] = useState('')
     const [sectionError, setSectionError] = useState('')
     const [sectionSaving, setSectionSaving] = useState(false)
-    const [collapsed, setCollapsed] = useState<string[]>([])
+    const [collapsed, setCollapsed] = useState(() => readCollapsedSections(userId, boardId))
+    const [collapseSaveFailed, setCollapseSaveFailed] = useState(false)
     const [moving, setMoving] = useState(false)
     const [moveError, setMoveError] = useState('')
     const [moveRetry, setMoveRetry] = useState<{
@@ -465,6 +467,14 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
             setMoving(false)
         }
     }
+    function toggleSection(sectionId: string) {
+        const next = collapsed.includes(sectionId)
+            ? collapsed.filter((id) => id !== sectionId)
+            : [...collapsed, sectionId]
+        setCollapsed(next)
+        setCollapseSaveFailed(!saveCollapsedSections(userId, boardId, next))
+    }
+
     if (loading) return <p role="status">Loading action items...</p>
     if (loadError)
         return (
@@ -628,6 +638,11 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
                     No action items match your search or filter.
                 </p>
             )}
+            {collapseSaveFailed && (
+                <p className="max-error" role="status">
+                    Section preferences could not be saved. Your choices may reset when you reopen this board.
+                </p>
+            )}
             {sections.map((section, index) => {
                 const rows = visibleItems.filter(
                     (item) => (item.section.trim() || 'General') === section.name,
@@ -648,20 +663,19 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
                                 type="button"
                                 aria-expanded={!isCollapsed}
                                 aria-controls={`section-${section.id}`}
-                                onClick={() =>
-                                    setCollapsed((current) =>
-                                        isCollapsed
-                                            ? current.filter((id) => id !== section.id)
-                                            : [...current, section.id],
-                                    )
-                                }
+                                aria-describedby={`section-count-${section.id}`}
+                                onClick={() => toggleSection(section.id)}
                             >
                                 <span aria-hidden="true">{isCollapsed ? '▸' : '▾'}</span>{' '}
                                 {section.name}
                             </button>
-                            <span className="max-section-count">
-                                {rows.length} of {sectionItems.length}{' '}
-                                {sectionItems.length === 1 ? 'item' : 'items'}
+                            <span className="max-section-count" id={`section-count-${section.id}`}>
+                                <span>
+                                    {rows.length} of {sectionItems.length}{' '}
+                                    {sectionItems.length === 1 ? 'item' : 'items'}
+                                </span>
+                                {' · '}
+                                <span>{sectionItems.filter((item) => item.attention).length} flagged for attention</span>
                             </span>
                             <div className="max-section-actions">
                                 <button
