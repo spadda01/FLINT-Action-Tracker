@@ -147,6 +147,10 @@ def test_invalid_moves_and_section_orders_do_not_change_state(workspace):
     a = client.post(base + "/items", json={"title": "A"}).json()
     b = client.post(base + "/items", json={"title": "B", "section": "Other"}).json()
     original = client.get(base + "/items").json()
+    history_path = base + f"/items/{a['id']}/history"
+    history = client.get(history_path)
+    assert history.status_code == 200
+    original_history = history.json()
     for data in [
         {"sectionId": "missing"},
         {"sectionId": sections[0]["id"], "beforeItemId": 999},
@@ -156,6 +160,9 @@ def test_invalid_moves_and_section_orders_do_not_change_state(workspace):
             client.post(base + f"/items/{a['id']}/move", json=data).status_code == 422
         )
         assert client.get(base + "/items").json() == original
+        history = client.get(history_path)
+        assert history.status_code == 200
+        assert history.json() == original_history
     assert (
         client.put(base + "/sections/order", json={"sectionIds": []}).status_code == 422
     )
