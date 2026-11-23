@@ -140,6 +140,47 @@ def test_sections_and_item_moves_keep_order_and_empty_sections(workspace, index)
     )
 
 
+@pytest.mark.parametrize("board_kind", ["project", "team"])
+def test_reordered_items_are_shared_across_board_members(
+    workspace, monkeypatch, board_kind
+):
+    client, _ = workspace
+    board = client.post(
+        f"/api/boards/{board_kind}",
+        json={
+            "name": "Shared reorder test",
+            "members": [
+                {"id": "E001", "type": "user"},
+                {"id": "E002", "type": "user"},
+            ],
+            "egnyteFolderUrl": "https://example.test/folder",
+        },
+    )
+    assert board.status_code == 201
+    base = f"/api/boards/{board.json()['id']}"
+    section = client.get(f"{base}/sections").json()[0]
+
+    item_ids = []
+    for title in ["A", "B", "C"]:
+        created = client.post(f"{base}/items", json={"title": title})
+        assert created.status_code == 201
+        item_ids.append(created.json()["id"])
+
+    first, second, third = item_ids
+    moved = client.post(
+        f"{base}/items/{third}/move",
+        json={"sectionId": section["id"], "beforeItemId": first},
+    )
+    assert moved.status_code == 200
+
+    # Both board members should see the saved order on a fresh read.
+    for user_id in ["user-1", "user-2"]:
+        monkeypatch.setenv("MOCK_USER_ID", user_id)
+        response = client.get(f"{base}/items")
+        assert response.status_code == 200
+        assert [item["id"] for item in response.json()] == [third, first, second]
+
+
 def test_invalid_moves_and_section_orders_do_not_change_state(workspace):
     client, boards = workspace
     base = f"/api/boards/{boards[0]}"
