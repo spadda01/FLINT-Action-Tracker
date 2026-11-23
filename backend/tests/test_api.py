@@ -1,7 +1,13 @@
+import pytest
 from fastapi.testclient import TestClient
 from app.main import app
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def enable_mock_data(monkeypatch):
+    monkeypatch.setenv("APP_MODE", "mock")
 
 
 def test_home():

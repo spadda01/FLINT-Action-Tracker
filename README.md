@@ -1,5 +1,5 @@
 # FLINT-Action-Tracker
-Action Tracker for FLINT Design replaces weekly spreadsheets with shared project and department boards. it supports action items, multiple owners, priorities, targets, status tracking, change history, and meeting PDFs. Integrations for Palantir Foundry, Oracle Primavera Cloud, and Microsoft Entra ID.
+Action Tracker for FLINT Design replaces weekly spreadsheets with shared project and department boards. It supports action items, multiple owners, priorities, targets, status tracking, change history, and meeting PDFs.
 
 ## Run the integrated application
 
@@ -34,6 +34,14 @@ npm run dev
 
 Open the URL printed by Vite. The frontend proxies `/api` to `127.0.0.1:8000`.
 
+### Mock sign-in and session behavior
+
+Use **Mock sign in** to open the workspace as the server-selected synthetic account, and **Sign out** to revoke that browser's session. No identity fields or credentials are required. The mock provider supplies a fixed synthetic account and tenant, and the backend checks both before issuing an opaque session cookie. Board membership and admin checks still apply to that account.
+
+Run this mode on a local loopback address with synthetic data only. Sessions live in backend memory and expire after 15 minutes of inactivity or on backend restart. Workspace requests and keyboard or pointer interaction renew the session. Passive status checks do not renew it. Existing API tests use an isolated dependency override for `MOCK_USER_ID`. The running app requires a valid session cookie.
+
+Real Microsoft Entra ID integration remains pending configuration and authorization. Real tenant verification, token validation, and identity-provider sign-out require that integration.
+
 Project and team board creation use the same board repository and access checks. Project suggestions come from `/api/projects`; a project board may also be created without a linked project. Mock folder paths are not full web URLs, so enter a valid Egnyte folder URL. To reopen a newly created board, the current mock employee (`user-1` maps to `E001`) must be a selected member or belong to a selected group.
 
 Board and item data use in-memory mock storage and reset on backend restart. Recent-board history is stored per user in the browser. Dashboard manual ordering is not implemented in this integration.
@@ -58,7 +66,7 @@ Section collapse preferences are stored in the current browser by signed-in user
 Validation:
 
 ```bash
-python -m pytest backend/tests -q
+python -m pytest backend/tests -q -o pythonpath=backend
 npm --prefix frontend test
 npm --prefix frontend run lint
 npm --prefix frontend run build

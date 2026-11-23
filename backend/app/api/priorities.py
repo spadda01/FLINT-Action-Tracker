@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from app.api.auth import get_current_user_id
 from app.adapters.boards import BoardRepository, MockBoardRepository
 from app.api.boards import get_board_service
 from app.services.board_access import can_access_board
@@ -22,23 +23,7 @@ class PriorityUpdate(BaseModel):
     priority: str
 
 
-def get_mock_user():
-    import os
-
-    if os.getenv("APP_MODE") != "mock":
-        raise HTTPException(
-            status_code=503, detail="Backend integration is not configured."
-        )
-
-    user_id = os.getenv("MOCK_USER_ID", "user-1")
-
-    if user_id not in ("user-1", "user-2", "user-3"):
-        raise HTTPException(status_code=401, detail="The mock user is not recognized.")
-
-    return user_id
-
-
-@router.get("/priorities")
+@router.get("/priorities", dependencies=[Depends(get_current_user_id)])
 def get_priorities():
     return priority_service.get_levels()
 
@@ -48,7 +33,7 @@ def list_items(
     board_id: str,
     priority: str | None = None,
     sort: bool = False,
-    user_id: str = Depends(get_mock_user),
+    user_id: str = Depends(get_current_user_id),
     repository: BoardRepository = Depends(MockBoardRepository),
     service: BoardService = Depends(get_board_service),
 ):
@@ -74,7 +59,7 @@ def update_item_priority(
     board_id: str,
     item_id: int,
     data: PriorityUpdate,
-    user_id: str = Depends(get_mock_user),
+    user_id: str = Depends(get_current_user_id),
     repository: BoardRepository = Depends(MockBoardRepository),
     service: BoardService = Depends(get_board_service),
 ):

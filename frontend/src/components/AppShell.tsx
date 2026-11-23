@@ -1,9 +1,14 @@
 import type { ReactNode } from 'react'
 import type { Board } from '../boards'
 
-type Props = { boards: Board[]; boardId: string | null; children: ReactNode }
+type Props = {
+  boards: Board[]
+  boardId: string | null
+  accountControls: ReactNode
+  children: ReactNode
+}
 
-export default function AppShell({ boards, boardId, children }: Props) {
+export default function AppShell({ boards, boardId, accountControls, children }: Props) {
   return (
     <div className="app-shell">
       <a
@@ -66,6 +71,7 @@ export default function AppShell({ boards, boardId, children }: Props) {
             </div>
           ))}
         </nav>
+        {accountControls}
         <p className="sidebar-footer">Shared actions. Clear ownership.</p>
       </aside>
       {children}
