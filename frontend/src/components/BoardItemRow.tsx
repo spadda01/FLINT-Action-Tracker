@@ -230,6 +230,12 @@ function FieldEditor({
                       />
                       External
                     </label>
+                                        {!owner.isExternal && !owner.employeeId && (
+                      <small role="status" className="max-unlinked-owner-warning">
+                        This owner is not linked to a FLINT employee record.
+                        To assign verified staff, use Add FLINT staff.
+                      </small>
+                    )}
                     {owner.isExternal && (
                       <OrganizationSelect
                         label={`Organization for owner ${index + 1} of ${item.title}`}

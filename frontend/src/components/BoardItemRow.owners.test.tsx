@@ -126,3 +126,36 @@ test('keeps the owner draft after a failed save and allows retry', async () => {
     expect(onUpdate).toHaveBeenCalledTimes(2)
     expect(onUpdate.mock.calls[1][0]).toEqual(onUpdate.mock.calls[0][0])
 })
+
+test('warns when an external owner becomes unlinked internal staff', async () => {
+    const { user, onUpdate } = setup()
+
+    await user.click(
+        screen.getByRole('button', { name: 'Edit owners for Review drawings' }),
+    )
+
+    // Sarah begins as an external owner.
+    const externalCheckboxes = screen.getAllByRole('checkbox', {
+        name: 'External',
+    })
+
+    await user.click(externalCheckboxes[1])
+
+    expect(
+        screen.getAllByText(/This owner is not linked to a FLINT employee record/),
+    ).toHaveLength(2)
+
+    // The warning does not prevent saving the owner.
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(onUpdate).toHaveBeenCalledWith({
+        owners: [
+            { name: 'Austin', isExternal: false },
+            {
+                name: 'Sarah',
+                isExternal: false,
+                organizationId: null,
+            },
+        ],
+    })
+})
