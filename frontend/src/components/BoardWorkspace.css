@@ -285,6 +285,20 @@
   color: #526579;
   font-size: 12px;
 }
+.max-success-notice {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  margin: 12px 0;
+  background-color: #eaf7ee;
+  border: 1px solid #b5dec5;
+  border-left: 4px solid #248a52;
+  border-radius: 8px;
+  color: #21633d;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+}
 .max-view-notice button {
   border: none;
   background: transparent;
