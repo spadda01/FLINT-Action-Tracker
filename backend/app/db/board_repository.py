@@ -14,6 +14,10 @@ class BoardRepository(ABC):
     def list_boards(self):
         pass
 
+    @abstractmethod
+    def update_board(self, board_id, updates):
+        pass
+
 
 # Temporary storage; boards are lost when the server restarts.
 class InMemoryBoardRepository(BoardRepository):
@@ -33,6 +37,20 @@ class InMemoryBoardRepository(BoardRepository):
     def get_board(self, board_id):
         return self.boards.get(board_id)
 
-    # Return saved boards so the API can filter them by access.
     def list_boards(self):
         return list(self.boards.values())
+
+    def update_board(self, board_id, updates):
+        board = self.boards.get(board_id)
+
+        if board is None:
+            return None
+
+        updated = {
+            **board,
+            **updates,
+        }
+
+        self.boards[board_id] = updated
+
+        return updated

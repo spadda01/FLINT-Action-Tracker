@@ -453,3 +453,123 @@ def test_project_board_allows_no_project_and_rejects_unknown_projects(client):
     assert 'projectId' in invalid.json()['errors']
     invalid_member = client.post('/api/boards/project', json=valid_board(members=[{'type': 'user', 'id': 'missing'}]))
     assert invalid_member.status_code == 422
+    
+    
+def test_project_board_defaults_to_active_project_team(client):
+    response = client.post(
+        "/api/boards/project",
+        json=valid_board(
+            projectId="P001",
+            members=[],
+        ),
+    )
+
+    assert response.status_code == 201
+
+    board = response.json()
+
+    assert board["members"] == [
+        {"id": "E001", "type": "user", "name": "John Smith"},
+        {"id": "E002", "type": "user", "name": "Sarah Lee"},
+        {"id": "E004", "type": "user", "name": "Austin Rivera"},
+        {"id": "E005", "type": "user", "name": "James Ortiz"},
+    ]
+
+
+def test_removing_member_removes_access_immediately(client, monkeypatch):
+    monkeypatch.setenv("MOCK_USER_ID", "user-1")
+
+    created = client.post(
+        "/api/boards/project",
+        json=valid_board(
+            projectId="P001",
+            members=[],
+        ),
+    ).json()
+
+    board_id = created["id"]
+
+    monkeypatch.setenv("MOCK_USER_ID", "user-2")
+    assert client.get(f"/api/boards/{board_id}").status_code == 200
+
+    monkeypatch.setenv("MOCK_USER_ID", "user-1")
+
+    response = client.patch(
+        f"/api/boards/{board_id}/members",
+        json={
+            "members": [
+                {"id": "E001", "type": "user"},
+                {"id": "E004", "type": "user"},
+                {"id": "E005", "type": "user"},
+            ]
+        },
+    )
+
+    assert response.status_code == 200
+
+    monkeypatch.setenv("MOCK_USER_ID", "user-2")
+    assert client.get(f"/api/boards/{board_id}").status_code == 404
+    
+    
+def test_removing_member_keeps_past_history(client, monkeypatch):
+    monkeypatch.setenv("MOCK_USER_ID", "user-1")
+
+    created = client.post(
+        "/api/boards/project",
+        json=valid_board(
+            projectId="P001",
+            members=[],
+        ),
+    ).json()
+
+    board_id = created["id"]
+
+    # user-2 has access through the default P001 project team
+    monkeypatch.setenv("MOCK_USER_ID", "user-2")
+
+    item_response = client.post(
+        f"/api/boards/{board_id}/items",
+        json={"title": "History test item"},
+    )
+
+    assert item_response.status_code == 201
+    item_id = item_response.json()["id"]
+
+    update_response = client.patch(
+        f"/api/boards/{board_id}/items/{item_id}",
+        json={"title": "Updated by user 2"},
+    )
+
+    assert update_response.status_code == 200
+
+    # creator/admin removes user-2 from the board
+    monkeypatch.setenv("MOCK_USER_ID", "user-1")
+
+    response = client.patch(
+        f"/api/boards/{board_id}/members",
+        json={
+            "members": [
+                {"id": "E001", "type": "user"},
+                {"id": "E004", "type": "user"},
+                {"id": "E005", "type": "user"},
+            ]
+        },
+    )
+
+    assert response.status_code == 200
+
+    # admin can still see the old history after user-2 is removed
+    history_response = client.get(
+        f"/api/boards/{board_id}/items/{item_id}/history"
+    )
+
+    assert history_response.status_code == 200
+
+    history = history_response.json()
+
+    assert any(
+        entry["actorId"] == "user-2"
+        for entry in history
+    )
+    
+    MOCK_ACTION_ITEMS.pop(board_id, None)
