@@ -218,6 +218,22 @@ describe('Start new week', () => {
         await waitFor(() => expect(row('Confirm material delivery')).not.toHaveClass('max-flagged'))
     })
 
+    it('reaches Cancel and Clear with Tab, in order', async () => {
+        const dialog = await openConfirmation()
+        const cancel = within(dialog).getByRole('button', { name: 'Cancel' })
+        const clear = within(dialog).getByRole('button', { name: 'Clear 2 flags' })
+
+        cancel.focus()
+        await userEvent.tab()
+        expect(clear).toHaveFocus()
+        await userEvent.tab({ shift: true })
+        expect(cancel).toHaveFocus()
+
+        await userEvent.keyboard('{Enter}')
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+        expect(resetRequests()).toHaveLength(0)
+    })
+
     it('keeps the flags and explains a failed save, then clears them on retry', async () => {
         resetFails = 'error'
         const dialog = await openConfirmation()
