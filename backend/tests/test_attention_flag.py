@@ -54,3 +54,102 @@ def test_non_member_cannot_flag(client, monkeypatch):
 
     monkeypatch.setenv("MOCK_USER_ID", "user-1")
     assert item(client, 2)["attention"] is flagged
+
+
+# --- History (AT-168) ---
+
+def history(client, item_id):
+    # Newest first. History is shared across tests, so only look at the newest entries.
+    return client.get(f"{P}/items/{item_id}/history").json()
+
+
+def test_setting_and_clearing_a_flag_is_recorded_in_history(client):
+    client.patch(f"{P}/items/2", json={"attention": True})
+    newest = history(client, 2)[0]
+    assert (newest["field"], newest["oldValue"], newest["newValue"]) == ("attention", False, True)
+    assert newest["actorId"] == "user-1"
+
+    client.patch(f"{P}/items/2", json={"attention": False})
+    newest = history(client, 2)[0]
+    assert (newest["field"], newest["oldValue"], newest["newValue"]) == ("attention", True, False)
+
+
+# --- Start new week (AT-168) ---
+
+RESET = f"{P}/attention/reset"
+
+
+def test_start_new_week_clears_every_flag_on_the_board(client):
+    client.patch(f"{P}/items/2", json={"attention": True})
+    flagged = [i["id"] for i in client.get(f"{P}/items").json() if i["attention"]]
+    assert len(flagged) == 2
+
+    response = client.post(RESET)
+
+    assert response.status_code == 200
+    assert sorted(response.json()["clearedItemIds"]) == sorted(flagged)
+    assert not any(i["attention"] for i in client.get(f"{P}/items").json())
+
+
+def test_start_new_week_records_each_cleared_flag_in_history(client):
+    flagged = [i["id"] for i in client.get(f"{P}/items").json() if i["attention"]]
+
+    client.post(RESET)
+
+    for item_id in flagged:
+        newest = history(client, item_id)[0]
+        assert (newest["field"], newest["oldValue"], newest["newValue"]) == ("attention", True, False)
+        assert newest["actorId"] == "user-1"
+
+
+def test_start_new_week_leaves_unflagged_items_and_status_alone(client):
+    before = client.get(f"{P}/items").json()
+    unflagged = next(i for i in before if not i["attention"])
+    history_before = len(history(client, unflagged["id"]))
+
+    client.post(RESET)
+
+    after = {i["id"]: i for i in client.get(f"{P}/items").json()}
+    for item_before in before:
+        assert after[item_before["id"]] == {**item_before, "attention": False}
+    assert len(history(client, unflagged["id"])) == history_before
+
+
+def test_start_new_week_only_changes_this_board(client, monkeypatch):
+    # user-1 is also a member of project-2; give it a flagged item.
+    monkeypatch.setitem(MOCK_ACTION_ITEMS, "project-2", [])
+    client.post("/api/boards/project-2/items", json={"title": "Other board", "attention": True})
+
+    client.post(RESET)
+
+    assert client.get("/api/boards/project-2/items").json()[0]["attention"] is True
+
+
+def test_start_new_week_with_nothing_flagged_clears_nothing(client):
+    client.post(RESET)
+
+    response = client.post(RESET)
+
+    assert response.status_code == 200
+    assert response.json() == {"clearedItemIds": []}
+
+
+def test_non_member_cannot_start_a_new_week(client, monkeypatch):
+    monkeypatch.setenv("MOCK_USER_ID", "user-2")
+
+    assert client.post(RESET).status_code == 404
+
+    monkeypatch.setenv("MOCK_USER_ID", "user-1")
+    assert any(i["attention"] for i in client.get(f"{P}/items").json())
+
+
+def test_unknown_user_cannot_start_a_new_week(client, monkeypatch):
+    monkeypatch.setenv("MOCK_USER_ID", "someone-else")
+
+    assert client.post(RESET).status_code == 401
+
+
+def test_start_new_week_is_off_outside_mock_mode(client, monkeypatch):
+    monkeypatch.delenv("APP_MODE")
+
+    assert client.post(RESET).status_code == 503

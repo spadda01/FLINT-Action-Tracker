@@ -18,6 +18,7 @@ const BASE: Omit<ActionItem, 'id' | 'title' | 'attention'> = {
 
 let items: ActionItem[]
 let patchFails: boolean
+let resetFails: 'error' | 'offline' | null
 let fetchMock: ReturnType<typeof vi.fn>
 
 beforeEach(() => {
@@ -26,12 +27,20 @@ beforeEach(() => {
         { ...BASE, id: 2, title: 'Send revised drawings', attention: false },
     ]
     patchFails = false
+    resetFails = null
 
     fetchMock = vi.fn(async (path: string, init?: RequestInit) => {
         const url = new URL(path, 'http://localhost')
         if (url.pathname === '/api/priorities') return Response.json([{ name: 'Medium', rank: 2 }])
         if (url.pathname.endsWith('/statuses')) return Response.json(['Open', 'In Progress', 'Complete'])
         if (url.pathname.endsWith('/sections')) return Response.json([{ id: 's1', name: 'Construction' }])
+        if (url.pathname.endsWith('/attention/reset') && init?.method === 'POST') {
+            if (resetFails === 'offline') throw new TypeError('Failed to fetch')
+            if (resetFails === 'error') return Response.json({ detail: 'Server error' }, { status: 500 })
+            const clearedItemIds = items.filter((i) => i.attention).map((i) => i.id)
+            items = items.map((i) => ({ ...i, attention: false }))
+            return Response.json({ clearedItemIds })
+        }
         const patch = url.pathname.match(/\/items\/(\d+)$/)
         if (patch && init?.method === 'PATCH') {
             if (patchFails) return Response.json({ detail: 'Server error' }, { status: 500 })
@@ -133,5 +142,112 @@ describe('Flagging an item for attention', () => {
 
         expect(screen.queryByRole('checkbox', { name: /^Attention for/ })).not.toBeInTheDocument()
         expect(screen.getByText('No matching items')).toBeInTheDocument()
+    })
+})
+
+// AT-168: Start new week clears every flag on the board after a confirmation.
+describe('Start new week', () => {
+    beforeEach(() => {
+        items = [
+            { ...BASE, id: 1, title: 'Confirm material delivery', attention: true },
+            { ...BASE, id: 2, title: 'Send revised drawings', attention: false },
+            { ...BASE, id: 3, title: 'Close out punch list', attention: true, status: 'Complete' },
+        ]
+    })
+
+    function resetRequests() {
+        return fetchMock.mock.calls.filter(([path]) => String(path).endsWith('/attention/reset'))
+    }
+
+    async function openConfirmation() {
+        await openBoard()
+        await userEvent.click(screen.getByRole('button', { name: 'Start new week' }))
+        return screen.getByRole('dialog', { name: 'Start new week' })
+    }
+
+    it('confirms with the count of every flag on the board, including hidden ones', async () => {
+        await openBoard()
+        // Hide the completed (flagged) item; it still counts.
+        await userEvent.click(screen.getByRole('button', { name: /^Filters/ }))
+        await userEvent.click(screen.getByRole('checkbox', { name: 'Hide completed' }))
+        await userEvent.click(screen.getByRole('button', { name: 'Apply' }))
+
+        await userEvent.click(screen.getByRole('button', { name: 'Start new week' }))
+
+        const dialog = screen.getByRole('dialog', { name: 'Start new week' })
+        expect(dialog).toHaveTextContent('Clear the attention flag on 2 items on this board?')
+        expect(within(dialog).getByRole('button', { name: 'Clear 2 flags' })).toBeInTheDocument()
+        expect(resetRequests()).toHaveLength(0)
+    })
+
+    it('changes nothing when cancelled', async () => {
+        const dialog = await openConfirmation()
+
+        await userEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+        expect(resetRequests()).toHaveLength(0)
+        expect(row('Confirm material delivery')).toHaveClass('max-flagged')
+    })
+
+    it('clears every flag and highlight once confirmed', async () => {
+        const dialog = await openConfirmation()
+
+        await userEvent.click(within(dialog).getByRole('button', { name: 'Clear 2 flags' }))
+
+        await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+        expect(resetRequests()).toHaveLength(1)
+        expect(flag('Confirm material delivery')).not.toBeChecked()
+        expect(row('Confirm material delivery')).not.toHaveClass('max-flagged')
+        expect(row('Close out punch list')).not.toHaveClass('max-flagged')
+        expect(screen.getByText('New week started. Cleared 2 attention flags.')).toBeInTheDocument()
+        // Status is untouched.
+        expect(
+            within(row('Confirm material delivery')).getByRole('button', { name: /currently In Progress/ }),
+        ).toBeInTheDocument()
+    })
+
+    it('works with only the keyboard', async () => {
+        await openBoard()
+
+        screen.getByRole('button', { name: 'Start new week' }).focus()
+        await userEvent.keyboard('{Enter}')
+        within(screen.getByRole('dialog')).getByRole('button', { name: 'Clear 2 flags' }).focus()
+        await userEvent.keyboard('{Enter}')
+
+        await waitFor(() => expect(row('Confirm material delivery')).not.toHaveClass('max-flagged'))
+    })
+
+    it('keeps the flags and explains a failed save, then clears them on retry', async () => {
+        resetFails = 'error'
+        const dialog = await openConfirmation()
+
+        await userEvent.click(within(dialog).getByRole('button', { name: 'Clear 2 flags' }))
+
+        expect(await within(dialog).findByRole('alert')).toHaveTextContent("Flags couldn't be cleared (error 500).")
+        expect(row('Confirm material delivery')).toHaveClass('max-flagged')
+
+        resetFails = null
+        await userEvent.click(within(dialog).getByRole('button', { name: 'Try again' }))
+        await waitFor(() => expect(row('Confirm material delivery')).not.toHaveClass('max-flagged'))
+    })
+
+    it('explains a lost connection', async () => {
+        resetFails = 'offline'
+        const dialog = await openConfirmation()
+
+        await userEvent.click(within(dialog).getByRole('button', { name: 'Clear 2 flags' }))
+
+        expect(await within(dialog).findByRole('alert')).toHaveTextContent("The server can't be reached, so no flags were cleared.")
+        expect(row('Confirm material delivery')).toHaveClass('max-flagged')
+    })
+
+    it('says there is nothing to clear when no items are flagged', async () => {
+        items = items.map((i) => ({ ...i, attention: false }))
+        const dialog = await openConfirmation()
+
+        expect(dialog).toHaveTextContent("No items on this board are flagged for attention, so there's nothing to clear.")
+        expect(within(dialog).queryByRole('button', { name: /^Clear/ })).not.toBeInTheDocument()
+        expect(resetRequests()).toHaveLength(0)
     })
 })

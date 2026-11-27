@@ -116,6 +116,30 @@ async function saveArchiveChange(
     return (await response.json()) as ActionItem
 }
 
+// Start new week: clears every attention flag on the board. Returns the ids
+// the server actually cleared, which can differ from what the user saw.
+export async function resetBoardAttention(boardId: string): Promise<number[]> {
+    let response: Response
+    try {
+        response = await fetch(`/api/boards/${encodeURIComponent(boardId)}/attention/reset`, {
+            method: 'POST',
+        })
+    } catch {
+        throw new ActionItemRequestError(
+            "The server can't be reached, so no flags were cleared. Check your connection and try again.",
+        )
+    }
+
+    if (!response.ok) {
+        throw new ActionItemRequestError(
+            `Flags couldn't be cleared (error ${response.status}). Try again.`,
+            response.status,
+        )
+    }
+    const result = (await response.json()) as { clearedItemIds: number[] }
+    return result.clearedItemIds
+}
+
 export const archiveActionItem = (
     boardId: string,
     itemId: number,
