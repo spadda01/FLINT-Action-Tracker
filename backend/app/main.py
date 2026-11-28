@@ -31,6 +31,7 @@ from app.schemas.action_item import (
 )
 from app.adapters.board_sections import WORKSPACE_LOCK, ensure_section
 from app.api.workspace import router as workspace_router
+from app.api.board_columns import router as board_columns_router
 from app.api.employees import get_employee_directory, router as employees_router
 from app.services.employee_directory import EmployeeDirectory, OwnerAssignmentError
 from app.services.status_service import (
@@ -49,6 +50,7 @@ from app.services.item_history_service import item_history_service
 app = FastAPI(title="FLINT Action Tracker API")
 app.include_router(priorities_router)
 app.include_router(workspace_router)
+app.include_router(board_columns_router)
 services = create_services()
 
 

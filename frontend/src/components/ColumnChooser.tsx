@@ -4,13 +4,16 @@ import { ALWAYS_VISIBLE, COLUMN_LABELS, type ColumnId, type ColumnSetting } from
 
 type ColumnChooserProps = {
     columns: readonly ColumnSetting[]
-    onApply: (columns: ColumnSetting[]) => void
+    // Saves the layout; a rejected promise keeps the dialog open with the reason.
+    onApply: (columns: ColumnSetting[]) => Promise<void>
 }
 
 export default function ColumnChooser({ columns, onApply }: ColumnChooserProps) {
     const [open, setOpen] = useState(false)
     const [draft, setDraft] = useState<ColumnSetting[]>([])
     const [announcement, setAnnouncement] = useState('')
+    const [saving, setSaving] = useState(false)
+    const [error, setError] = useState('')
     // After a move, keep focus on that column even when its button becomes disabled.
     const [focusAfterMove, setFocusAfterMove] = useState<{ id: ColumnId; direction: -1 | 1 } | null>(null)
     const list = useRef<HTMLOListElement>(null)
@@ -33,10 +36,19 @@ export default function ColumnChooser({ columns, onApply }: ColumnChooserProps) 
         setAnnouncement(`${COLUMN_LABELS[column.id]} moved to position ${index + direction + 1} of ${next.length}.`)
     }
 
-    function apply(event: FormEvent) {
+    async function apply(event: FormEvent) {
         event.preventDefault()
-        onApply(draft)
-        setOpen(false)
+        if (saving) return
+        setSaving(true)
+        setError('')
+        try {
+            await onApply(draft)
+            setOpen(false)
+        } catch (cause) {
+            setError(cause instanceof Error ? cause.message : "The columns couldn't be saved. Try again.")
+        } finally {
+            setSaving(false)
+        }
     }
 
     return (
@@ -46,14 +58,15 @@ export default function ColumnChooser({ columns, onApply }: ColumnChooserProps) 
                 onClick={() => {
                     setDraft([...columns])
                     setAnnouncement('')
+                    setError('')
                     setOpen(true)
                 }}
             >
                 Columns
             </button>
             {open && (
-                <WorkspaceDialog title="Columns" onClose={() => setOpen(false)}>
-                    <form className="max-form" onSubmit={apply}>
+                <WorkspaceDialog title="Columns" busy={saving} onClose={() => setOpen(false)}>
+                    <form className="max-form" onSubmit={(event) => void apply(event)}>
                         <p className="max-muted">Choose which columns appear and their order.</p>
                         <ol ref={list} className="max-column-list">
                             {draft.map((column, index) => {
@@ -104,12 +117,17 @@ export default function ColumnChooser({ columns, onApply }: ColumnChooserProps) 
                         <p role="status" className="visually-hidden">
                             {announcement}
                         </p>
+                        {error && (
+                            <p role="alert" className="max-error">
+                                {error}
+                            </p>
+                        )}
                         <div className="max-dialog-actions">
-                            <button type="button" onClick={() => setOpen(false)}>
+                            <button type="button" disabled={saving} onClick={() => setOpen(false)}>
                                 Cancel
                             </button>
-                            <button className="max-primary" type="submit">
-                                Apply
+                            <button className="max-primary" type="submit" disabled={saving}>
+                                {saving ? 'Saving…' : error ? 'Try again' : 'Apply'}
                             </button>
                         </div>
                     </form>

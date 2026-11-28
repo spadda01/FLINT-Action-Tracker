@@ -48,6 +48,7 @@ import BoardItemRow from './BoardItemRow'
 import { getOwnerType } from '../services/ownerTypes'
 import WorkspaceDialog from './WorkspaceDialog'
 import ColumnChooser from './ColumnChooser'
+import { loadBoardColumns, saveBoardColumns } from '../services/boardColumnService'
 import { COLUMN_LABELS, DEFAULT_COLUMNS, visibleColumns, type ColumnSetting } from './boardColumns'
 import './BoardWorkspace.css'
 
@@ -101,12 +102,7 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
     const [dropBefore, setDropBefore] = useState<number | null>(null)
     const [notice, setNotice] = useState('')
     const [columnSettings, setColumnSettings] = useState<readonly ColumnSetting[]>(DEFAULT_COLUMNS)
-    const [columnsBoardId, setColumnsBoardId] = useState(boardId)
-    // Column choices belong to one board, so another board starts from the default.
-    if (columnsBoardId !== boardId) {
-        setColumnsBoardId(boardId)
-        setColumnSettings(DEFAULT_COLUMNS)
-    }
+    const [columnsLoadError, setColumnsLoadError] = useState('')
     const columns = visibleColumns(columnSettings)
     const [quickTitles, setQuickTitles] = useState<Record<string, string>>({})
     const [quickError, setQuickError] = useState<Record<string, string>>({})
@@ -131,9 +127,15 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
             loadSections(boardId),
             getPriorities(),
             loadBoardStatuses(boardId),
+            // A column layout that fails to load never blocks the board.
+            loadBoardColumns(boardId).catch(() => null),
         ])
-            .then(([nextItems, nextSections, nextPriorities, nextStatuses]) => {
+            .then(([nextItems, nextSections, nextPriorities, nextStatuses, nextColumns]) => {
                 if (!active) return
+                setColumnSettings(nextColumns ?? DEFAULT_COLUMNS)
+                setColumnsLoadError(
+                    nextColumns ? '' : "This board's saved columns couldn't be loaded, so all columns are shown.",
+                )
                 setItems(nextItems)
                 setSections(nextSections)
                 setPriorities(nextPriorities)
@@ -536,12 +538,15 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
                 </button>
                 <ColumnChooser
                     columns={columnSettings}
-                    onApply={(next) => {
-                        setColumnSettings(next)
-                        setNotice('Columns updated.')
+                    onApply={async (next) => {
+                        // Only show the new layout once it is saved for this board.
+                        setColumnSettings(await saveBoardColumns(boardId, next))
+                        setColumnsLoadError('')
+                        setNotice('Columns saved for this board.')
                     }}
                 />
             </div>
+            {columnsLoadError && <p className="max-view-notice">{columnsLoadError}</p>}
             {orderingRestricted && (
                 <p className="max-view-notice">
                     Search, filters or sorting are active.{' '}
