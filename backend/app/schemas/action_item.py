@@ -117,3 +117,8 @@ class ArchivedActionItem(BaseModel):
 class ArchivedActionItemsResponse(BaseModel):
     archivedItems: list[ArchivedActionItem]
     canRestore: bool
+
+
+class AttentionResetResult(BaseModel):
+    # Items whose flag was cleared by Start new week.
+    clearedItemIds: list[int]

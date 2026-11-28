@@ -238,6 +238,13 @@
   accent-color: #b78c12;
   cursor: pointer;
 }
+/* Rows flagged for attention this week. The bar keeps it visible without relying on colour alone. */
+.max-flagged td {
+  background: #fff6dc;
+}
+.max-flagged td:first-child {
+  box-shadow: inset 4px 0 #b78c12;
+}
 .max-drop-before {
   box-shadow: inset 0 3px #006098;
 }

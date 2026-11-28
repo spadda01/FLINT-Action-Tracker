@@ -28,6 +28,7 @@ from app.schemas.action_item import (
     ActionItemUpdate,
     ArchiveItemRequest,
     ArchivedActionItemsResponse,
+    AttentionResetResult,
 )
 from app.adapters.board_sections import WORKSPACE_LOCK, ensure_section
 from app.api.workspace import router as workspace_router
@@ -339,6 +340,37 @@ def update_board_item_target(
             after=item.model_dump(mode="json"),
         )
         return item
+
+
+# Start new week: clears every attention flag on this board only.
+@app.post(
+    "/api/boards/{board_id}/attention/reset",
+    response_model=AttentionResetResult,
+)
+def reset_board_attention(
+    board_id: str,
+    user_id: str = Depends(get_current_user_id),
+    repository: BoardRepository = Depends(get_board_repository),
+    service: BoardService = Depends(get_board_service),
+) -> AttentionResetResult:
+    require_board_access(board_id, user_id, repository, service)
+
+    cleared = []
+    with WORKSPACE_LOCK:
+        for item in get_mock_action_items(board_id):
+            if not item.attention:
+                continue
+            item.attention = False
+            # Each cleared flag is recorded in that item's history.
+            item_history_service.record_changes(
+                board_id=board_id,
+                item_id=item.id,
+                actor_id=user_id,
+                before={"attention": True},
+                after={"attention": False},
+            )
+            cleared.append(item.id)
+    return AttentionResetResult(clearedItemIds=cleared)
 
 
 @app.get(

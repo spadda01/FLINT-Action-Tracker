@@ -46,6 +46,7 @@ import { readCollapsedSections, saveCollapsedSections } from '../services/sectio
 import { dateFirstSorting, displayTarget } from '../target'
 import BoardItemDialog from './BoardItemDialog'
 import BoardItemRow from './BoardItemRow'
+import StartNewWeek from './StartNewWeek'
 import { getOwnerType } from '../services/ownerTypes'
 import WorkspaceDialog from './WorkspaceDialog'
 import './BoardWorkspace.css'
@@ -534,6 +535,20 @@ export default function BoardWorkspace({ boardId, userId }: { boardId: string; u
                 >
                     Archived items
                 </button>
+                <StartNewWeek
+                    boardId={boardId}
+                    flaggedCount={items.filter((item) => item.attention).length}
+                    onCleared={(clearedIds) => {
+                        const cleared = new Set(clearedIds)
+                        // Only touch the flags the server cleared, so other edits in progress aren't overwritten.
+                        setItems((current) =>
+                            current.map((item) => (cleared.has(item.id) ? { ...item, attention: false } : item)),
+                        )
+                        setNotice(
+                            `New week started. Cleared ${clearedIds.length} attention ${clearedIds.length === 1 ? 'flag' : 'flags'}.`,
+                        )
+                    }}
+                />
             </div>
             {orderingRestricted && (
                 <p className="max-view-notice">

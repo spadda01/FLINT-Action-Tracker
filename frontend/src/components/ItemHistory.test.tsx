@@ -84,3 +84,25 @@ test('shows a load error and lets the user retry successfully', async () => {
   ).toBeTruthy()
   expect(loadHistoryMock).toHaveBeenCalledTimes(2)
 })
+
+test('shows attention flag changes as Yes and No', async () => {
+  loadHistoryMock.mockResolvedValue([
+    {
+      id: 'history-2',
+      boardId: 'project-1',
+      itemId: 1,
+      actorId: 'user-1',
+      changedAt: '2026-11-07T21:05:00Z',
+      field: 'attention',
+      oldValue: true,
+      newValue: false,
+    },
+  ])
+
+  render(<ItemHistory boardId="project-1" itemId={1} />)
+
+  expect(await screen.findByText('Attention')).toBeTruthy()
+  expect(screen.getByText('Yes')).toBeTruthy()
+  expect(screen.getByText('No')).toBeTruthy()
+  expect(screen.queryByText('true')).toBeNull()
+})

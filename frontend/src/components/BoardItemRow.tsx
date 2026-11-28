@@ -479,6 +479,8 @@ export default function BoardItemRow({
     <tr
       className={[
         item.status === 'Complete' ? 'max-complete' : '',
+        // Follows the checkbox while saving and rolls back if the save fails.
+        (pendingAttention ?? item.attention) ? 'max-flagged' : '',
         dropBefore ? 'max-drop-before' : '',
       ].join(' ')}
       onDragOver={onDragOver}
