@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BoardWorkspace from './BoardWorkspace'
 import type { ActionItem } from '../services/actionItemService'
@@ -252,6 +252,40 @@ describe('Column chooser', () => {
 
     it('still opens the board with every column when saved columns fail to load', async () => {
         columnsFail.load = true
+
+        await openBoard()
+
+        expect(headers()).toEqual(['Move', 'Item', 'Owners', 'Target', 'Status', 'Priority', 'Attention'])
+        expect(screen.getByText(/saved columns couldn't be loaded, so all columns are shown/)).toBeInTheDocument()
+    })
+
+    it('offers only the supported columns, with no way to add a custom one', async () => {
+        await openBoard()
+        const dialog = await openChooser()
+
+        expect(within(dialog).getAllByRole('checkbox').map((box) => box.closest('label')?.textContent)).toEqual([
+            'Item (always shown)', 'Owners', 'Target', 'Status', 'Priority', 'Attention',
+        ])
+        expect(within(dialog).queryByRole('textbox')).not.toBeInTheDocument()
+        expect(within(dialog).queryByRole('button', { name: /add/i })).not.toBeInTheDocument()
+    })
+
+    it('closes with Escape without saving anything', async () => {
+        await openBoard()
+        const dialog = await openChooser()
+        await userEvent.click(within(dialog).getByRole('checkbox', { name: 'Owners' }))
+
+        // Browsers turn Escape into the dialog's cancel event; jsdom doesn't, so send it directly.
+        fireEvent(dialog, new Event('cancel', { cancelable: true }))
+
+        expect(screen.queryByRole('dialog', { name: 'Columns' })).not.toBeInTheDocument()
+        expect(savedColumns['project-1']).toBeUndefined()
+        expect(headers()).toContain('Owners')
+    })
+
+    it('shows every column when the saved layout is invalid', async () => {
+        // Missing the Attention column.
+        savedColumns['project-1'] = DEFAULT_ORDER.slice(0, -1).map((id) => ({ id, visible: id !== 'owners' }))
 
         await openBoard()
 

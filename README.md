@@ -46,16 +46,17 @@ Board and item data use in-memory mock storage and reset on backend restart. Rec
 - Use an item's Archive action for a mistaken entry and provide a reason. Archived item details and status history are retained; board members can review the archive record, while only the board admin can restore the item. There is no delete action.
 - Drag a row's move handle to another row or an empty section. Keyboard users can open the handle's Move dialog, or use Alt+Up/Down to reorder within a section. Clear search, filters and sorting before moving items so the saved order is unambiguous.
 - Add, rename and order sections with the controls beside their headings. Quick entry is available in each section and keeps focus after Enter.
+- **Columns** chooses which columns appear and their order (Space toggles a column, the ↑/↓ buttons move it). Item, the deliverable or action, is always shown, and only the built-in columns are offered. Apply saves the layout for that board, shared by its members, and it loads when the board is reopened. If saving fails, the board keeps its last saved layout and the dialog offers Try again; if the saved layout can't be loaded, the board opens with all columns. The Archive button sits under History in the Item column so it stays available when columns are hidden.
 - Filters apply attention/completed/priority filtering and target/priority sorting. Search and filter selections are temporary view state and reset on page refresh.
 - Team-board creation uses a keyboard-accessible modal styled from `Project_Board/` with the shared member adapters and save service.
 - Status Board and Meeting remain disabled until those views are implemented. The old standalone apps are retained as reference implementations.
 
-Item edits, item ordering and section changes survive browser refresh while the mock backend runs. Mock storage is still in memory and resets on backend restart. The earlier acceptance audit in `docs/testing/` records the specific commit it tested; it is a historical snapshot rather than certification of newer changes.
+Item edits, item ordering, section changes and column layouts survive browser refresh while the mock backend runs. Mock storage is still in memory and resets on backend restart. The earlier acceptance audit in `docs/testing/` records the specific commit it tested; it is a historical snapshot rather than certification of newer changes.
 
 Validation:
 
 ```bash
-python -m pytest backend/tests -q
+(cd backend && python -m pytest -q)
 npm --prefix frontend test
 npm --prefix frontend run lint
 npm --prefix frontend run build
