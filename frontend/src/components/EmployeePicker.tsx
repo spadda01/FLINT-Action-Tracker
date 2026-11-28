@@ -20,7 +20,7 @@ type SearchState =
     | { kind: 'idle' }
     | { kind: 'loading' }
     // Each result remembers the text it was searched for.
-    | { kind: 'done'; query: string; results: Employee[] }
+    | { kind: 'done'; query: string; results: Employee[]; alreadyAssigned: Employee[] }
     | { kind: 'error'; query: string; message: string }
 
 function EmployeePicker({
@@ -48,8 +48,8 @@ function EmployeePicker({
     const search: SearchState = !query
         ? { kind: 'idle' }
         : (lastSearch.kind === 'done' || lastSearch.kind === 'error') && lastSearch.query === query
-          ? lastSearch
-          : { kind: 'loading' }
+            ? lastSearch
+            : { kind: 'loading' }
     const results = search.kind === 'done' ? search.results : []
 
     useEffect(() => {
@@ -63,12 +63,17 @@ function EmployeePicker({
                 const found = await searchEmployees(boardId, query, controller.signal)
                 const excluded = new Set(excludeKey.split(','))
                 const shown = found.filter((employee) => !excluded.has(employee.id))
-                setSearch({ kind: 'done', query, results: shown })
+                const alreadyAssigned = found.filter((employee) => excluded.has(employee.id))
+                setSearch({ kind: 'done', query, results: shown, alreadyAssigned })
                 setActiveIndex(-1)
                 setAnnouncement(
-                    shown.length === 0
-                        ? 'No matching staff.'
-                        : `${shown.length} ${shown.length === 1 ? 'person' : 'people'} found.`,
+                    shown.length > 0
+                        ? `${shown.length} ${shown.length === 1 ? 'person' : 'people'} found.`
+                        : alreadyAssigned.length === 1
+                            ? `${alreadyAssigned[0].name} is already assigned to this action item.`
+                            : alreadyAssigned.length > 1
+                                ? 'Matching FLINT staff are already assigned to this action item.'
+                                : 'No matching staff.',
                 )
             } catch (error) {
                 if (controller.signal.aborted) return
@@ -189,7 +194,13 @@ function EmployeePicker({
                     )}
 
                     {search.kind === 'done' && results.length === 0 && (
-                        <p className={styles.note}>No FLINT staff match “{query}”.</p>
+                        <p className={styles.note}>
+                            {search.alreadyAssigned.length === 1
+                                ? `${search.alreadyAssigned[0].name} is already assigned to this action item.`
+                                : search.alreadyAssigned.length > 1
+                                    ? 'Matching FLINT staff are already assigned to this action item.'
+                                    : `No FLINT staff match “${query}”.`}
+                        </p>
                     )}
 
                     {results.length > 0 && (

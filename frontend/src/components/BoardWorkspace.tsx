@@ -625,9 +625,11 @@ export default function BoardWorkspace({ boardId, userId }: { boardId: string; u
                     )}
                 </p>
             )}
-            <span role="status" className="visually-hidden">
-                {notice}
-            </span>
+            {notice && (
+                <p role="status" className="max-success-notice">
+                    {notice}
+                </p>
+            )}
             {items.length === 0 && (
                 <p className="max-empty">
                     No action items found. Add the first item below.

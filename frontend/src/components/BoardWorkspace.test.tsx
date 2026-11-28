@@ -590,6 +590,9 @@ test('archives with a reason, retains the record and retries failed saves/restor
     screen.queryByRole('button', { name: 'Edit title for Confirm equipment' }),
   ).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: /delete/i })).not.toBeInTheDocument()
+  expect(
+  screen.getByText('Item archived. Its history is retained.'),
+).toBeVisible()
 
   await user.click(screen.getByRole('button', { name: 'Archived items' }))
   expect(await screen.findByText('Duplicate entry')).toBeInTheDocument()

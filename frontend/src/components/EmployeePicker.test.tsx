@@ -150,7 +150,7 @@ describe('EmployeePicker', () => {
     })
 
     it('shows a searching message while waiting', async () => {
-        vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})))
+        vi.stubGlobal('fetch', vi.fn(() => new Promise(() => { })))
         const { input } = renderPicker()
 
         await userEvent.type(input, 'sar')
@@ -178,6 +178,29 @@ describe('EmployeePicker', () => {
 
         expect(screen.queryByRole('option', { name: /Sarah Lee/ })).not.toBeInTheDocument()
         expect(screen.getByRole('option', { name: /Maranda Lopez/ })).toBeInTheDocument()
+    })
+
+    it('explains when a matching employee is already assigned', async () => {
+        stubSearch([STAFF[0]])
+
+        const { input, onSelect } = renderPicker({
+            excludeIds: ['E002'],
+        })
+
+        await userEvent.type(input, 'sar')
+
+        expect(
+            await screen.findAllByText(
+                'Sarah Lee is already assigned to this action item.',
+            ),
+        ).toHaveLength(2)
+
+        expect(screen.getByRole('status')).toHaveTextContent(
+            'Sarah Lee is already assigned to this action item.',
+        )
+
+        expect(screen.queryByRole('option')).not.toBeInTheDocument()
+        expect(onSelect).not.toHaveBeenCalled()
     })
 
     it('explains a failed search and tries again', async () => {
@@ -209,7 +232,7 @@ describe('EmployeePicker', () => {
 
     it('ignores an older search that finishes after a newer one', async () => {
         // The first search ("s") is slow; the second ("sa") answers at once.
-        let finishFirst: (response: Response) => void = () => {}
+        let finishFirst: (response: Response) => void = () => { }
         vi.stubGlobal(
             'fetch',
             vi.fn((url: string, init: RequestInit) => {
@@ -243,7 +266,7 @@ describe('EmployeePicker', () => {
             vi.fn((url: string) =>
                 url.endsWith('search=da')
                     ? Promise.resolve(respond([STAFF[1]]))
-                    : new Promise<Response>(() => {}),
+                    : new Promise<Response>(() => { }),
             ),
         )
         const { input, onSelect } = renderPicker()
