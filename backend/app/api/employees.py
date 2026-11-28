@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 
+from app.api.auth import get_current_user_id
 from app.api.boards import get_board_service
 from app.schemas.employee import EmployeeSummary
 from app.services.employee_directory import EmployeeDirectory
@@ -19,12 +20,13 @@ def get_employee_directory():
 # board get 404. Returns the board's linked project, if it has one.
 def board_project_id(
     board_id: str,
+    user_id: str = Depends(get_current_user_id),
     board_service=Depends(get_board_service),
 ) -> str | None:
     # Imported here because app.main imports this router.
-    from app.main import get_board, get_board_repository, get_current_user_id
+    from app.main import get_board, get_board_repository
 
-    board = get_board(board_id, get_current_user_id(), get_board_repository(), board_service)
+    board = get_board(board_id, user_id, get_board_repository(), board_service)
     return getattr(board, "projectId", None)
 
 

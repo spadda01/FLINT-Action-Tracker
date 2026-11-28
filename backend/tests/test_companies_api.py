@@ -52,7 +52,8 @@ def test_companies_endpoint_uses_the_adapter(client):
 
 
 def test_default_adapter_is_the_mock_list(monkeypatch):
-    app.dependency_overrides.clear()
+    monkeypatch.setenv("APP_MODE", "mock")
+    monkeypatch.delitem(app.dependency_overrides, get_company_adapter, raising=False)
     with TestClient(app) as c:
         names = [x["name"] for x in c.get("/api/companies").json()]
     assert "Example Structural Engineering" in names

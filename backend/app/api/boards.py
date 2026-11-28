@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
+from app.api.auth import get_current_user_id
 from app.db.board_repository import InMemoryBoardRepository
 from app.schemas.boards import Board, TeamBoardCreate
 from app.services.board_service import BoardService, BoardValidationError
@@ -21,19 +22,14 @@ def get_board_service():
     return _board_service
 
 
-def _current_user_id():
-    from app.main import get_current_user_id
-
-    return get_current_user_id()
-
-
 @router.post("/boards/team", response_model=Board, status_code=201)
 def create_team_board(
     data: TeamBoardCreate,
+    user_id: str = Depends(get_current_user_id),
     service: BoardService = Depends(get_board_service),
 ):
     try:
-        return service.create_team_board(data, _current_user_id())
+        return service.create_team_board(data, user_id)
     except BoardValidationError as error:
         # {"errors": {field: message}} lets the form show each message beside its field.
         return JSONResponse(status_code=422, content={"errors": error.errors})
@@ -42,11 +38,12 @@ def create_team_board(
 @router.post("/boards/project", response_model=Board, status_code=201)
 def create_project_board(
     data: TeamBoardCreate,
+    user_id: str = Depends(get_current_user_id),
     service: BoardService = Depends(get_board_service),
 ):
     try:
         return service.create_project_board(
-            data, _services["projects"].get_projects(), _current_user_id()
+            data, _services["projects"].get_projects(), user_id
         )
     except BoardValidationError as error:
         return JSONResponse(status_code=422, content={"errors": error.errors})

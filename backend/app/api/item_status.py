@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 
+from app.api.auth import get_current_user_id
 from app.api.boards import get_board_service
 from app.db.item_status_repository import (
     InMemoryActionItemStore,
@@ -35,12 +36,12 @@ def get_status_service():
 # who can't see a board can't read or change its items either (404).
 def require_board_member(
     board_id: str,
+    user_id: str = Depends(get_current_user_id),
     board_service=Depends(get_board_service),
 ) -> str:
     # Imported here because app.main imports this router.
-    from app.main import get_board, get_board_repository, get_current_user_id
+    from app.main import get_board, get_board_repository
 
-    user_id = get_current_user_id()
     get_board(board_id, user_id, get_board_repository(), board_service)
     return user_id
 

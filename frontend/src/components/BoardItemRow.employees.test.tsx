@@ -67,14 +67,14 @@ function ownersCell() {
 }
 
 async function openOwnerEditor() {
-    render(<BoardWorkspace boardId="project-1" />)
+    render(<BoardWorkspace userId="user-1" boardId="project-1" />)
     await userEvent.click(await screen.findByRole('button', { name: /Edit owners for/ }))
     return screen.getByRole('combobox', { name: 'Add FLINT staff to Confirm material delivery' })
 }
 
 describe('Assigning FLINT staff as owners', () => {
     it('marks an owner who has left FLINT as inactive', async () => {
-        render(<BoardWorkspace boardId="project-1" />)
+        render(<BoardWorkspace userId="user-1" boardId="project-1" />)
 
         await waitFor(() => expect(ownersCell()).toHaveTextContent(/Dana Whitfield.*Inactive/))
         expect(ownersCell()).not.toHaveTextContent('James Ortiz Inactive')
@@ -84,7 +84,7 @@ describe('Assigning FLINT staff as owners', () => {
 
     it('still shows owner names when the inactive lookup fails', async () => {
         lookupFails = true
-        render(<BoardWorkspace boardId="project-1" />)
+        render(<BoardWorkspace userId="user-1" boardId="project-1" />)
 
         await waitFor(() => {
             expect(ownersCell()).toHaveTextContent('James Ortiz')

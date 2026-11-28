@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import './App.css'
+import { AuthRequestError, mockAuth } from './services/authService'
 import type { Board } from './boards'
-import { loadBoards, loadCurrentUser } from './services/boardService'
+import { BoardRequestError, loadBoards, loadCurrentUser } from './services/boardService'
 import { readRecentBoards, saveRecentBoards } from './services/recentBoards'
 import BoardList from './components/BoardList'
 import BoardPage from './components/BoardPage'
@@ -24,14 +25,160 @@ function boardIdFromLocation(): string | null {
   }
 }
 
+type Session =
+  | { status: 'checking' }
+  | { status: 'signed-out'; message?: string }
+  | { status: 'unavailable' }
+  | { status: 'signed-in'; userId: string }
+
+const SESSION_CHECK_MS = 10_000
+
 function App() {
+  const [session, setSession] = useState<Session>({ status: 'checking' })
+  const [authAttempt, setAuthAttempt] = useState(0)
+  const [authPending, setAuthPending] = useState(false)
+  const [authError, setAuthError] = useState('')
+  const { status } = session
+
+  useEffect(() => {
+    let active = true
+    void loadCurrentUser()
+      .then(({ id }) => {
+        if (active) setSession({ status: 'signed-in', userId: id })
+      })
+      .catch((error: unknown) => {
+        if (!active) return
+        setSession(error instanceof BoardRequestError && error.status === 401
+          ? { status: 'signed-out' }
+          : { status: 'unavailable' })
+      })
+    return () => { active = false }
+  }, [authAttempt])
+
+  const closeExpiredSession = useCallback(() => {
+    setSession({ status: 'signed-out', message: 'Your session ended. Sign in to continue.' })
+  }, [])
+
+  useEffect(() => {
+    if (status !== 'signed-in') return
+    let active = true
+    let interacted = false
+    let checking = false
+
+    function recordActivity() {
+      interacted = true
+    }
+
+    async function checkSession() {
+      if (checking) return
+      checking = true
+      const renew = interacted
+      interacted = false
+      try {
+        if (renew) await loadCurrentUser()
+        else await mockAuth('session')
+      } catch (error) {
+        if (!active) return
+        if ((error instanceof BoardRequestError || error instanceof AuthRequestError) &&
+          error.status === 401) {
+          closeExpiredSession()
+        } else {
+          setSession({ status: 'unavailable' })
+        }
+      } finally {
+        checking = false
+      }
+    }
+
+    const timer = window.setInterval(() => void checkSession(), SESSION_CHECK_MS)
+    window.addEventListener('pointerdown', recordActivity)
+    window.addEventListener('keydown', recordActivity)
+    return () => {
+      active = false
+      window.clearInterval(timer)
+      window.removeEventListener('pointerdown', recordActivity)
+      window.removeEventListener('keydown', recordActivity)
+    }
+  }, [status, closeExpiredSession])
+
+  function recheck() {
+    setSession({ status: 'checking' })
+    setAuthAttempt((attempt) => attempt + 1)
+  }
+
+  async function changeSession(action: 'sign-in' | 'sign-out') {
+    setAuthPending(true)
+    setAuthError('')
+    try {
+      await mockAuth(action)
+      if (action === 'sign-in') recheck()
+      else setSession({ status: 'signed-out' })
+    } catch (error) {
+      if (action === 'sign-out') {
+        setAuthError('Unable to sign out. Please try again.')
+      } else {
+        setAuthError(error instanceof AuthRequestError && error.status === 403
+          ? 'This mock account or tenant is unauthorized.'
+          : 'Unable to sign in. Please try again.')
+      }
+    } finally {
+      setAuthPending(false)
+    }
+  }
+
+  if (session.status === 'signed-in') {
+    return (
+      <BoardApplication
+        key={session.userId}
+        userId={session.userId}
+        onSessionEnded={closeExpiredSession}
+        accountControls={(
+          <>
+            <button type="button" disabled={authPending} onClick={() => void changeSession('sign-out')}>
+              Sign out
+            </button>
+            {authError && <p role="alert">{authError}</p>}
+          </>
+        )}
+      />
+    )
+  }
+
+  return (
+    <main id="main-content" className="boards-page">
+      <h1>FLINT Action Tracker</h1>
+      {session.status === 'checking' ? (
+        <p role="status">Loading your boards…</p>
+      ) : session.status === 'unavailable' ? (
+        <>
+          <p role="alert">Unable to verify your session. Please try again.</p>
+          <button type="button" onClick={recheck}>Retry</button>
+        </>
+      ) : (
+        <>
+          <p>Sign in with a synthetic account for local testing.</p>
+          {session.message && <p role="status">{session.message}</p>}
+          {authError && <p role="alert">{authError}</p>}
+          <button type="button" disabled={authPending} onClick={() => void changeSession('sign-in')}>
+            Mock sign in
+          </button>
+        </>
+      )}
+    </main>
+  )
+}
+
+function BoardApplication({ userId, onSessionEnded, accountControls }: {
+  userId: string
+  onSessionEnded: () => void
+  accountControls: React.ReactNode
+}) {
   const [boards, setBoards] = useState<Board[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [loadAttempt, setLoadAttempt] = useState(0)
   const [searchText, setSearchText] = useState('')
-  const [userId, setUserId] = useState('')
-  const [recentHistory, setRecentHistory] = useState<string[]>([])
+  const [recentHistory, setRecentHistory] = useState(() => readRecentBoards(userId))
   const [boardId, setBoardId] = useState(boardIdFromLocation)
   const [isCreatingProject, setIsCreatingProject] = useState(
     () => window.location.hash === '#/create-project-board',
@@ -65,19 +212,12 @@ function App() {
       setBoards([])
 
       try {
-        const [loadedBoards, user] = await Promise.all([
-          loadBoards(),
-          loadCurrentUser(),
-        ])
-
+        const loadedBoards = await loadBoards()
+        if (active) setBoards(loadedBoards)
+      } catch (error) {
         if (active) {
-          setBoards(loadedBoards)
-          setUserId(user.id)
-          setRecentHistory(readRecentBoards(user.id))
-        }
-      } catch {
-        if (active) {
-          setError('Unable to load your boards. Please try again.')
+          if (error instanceof BoardRequestError && error.status === 401) onSessionEnded()
+          else setError('Unable to load your boards. Please try again.')
         }
       } finally {
         if (active) {
@@ -91,7 +231,7 @@ function App() {
     return () => {
       active = false
     }
-  }, [loadAttempt])
+  }, [loadAttempt, onSessionEnded])
 
   useEffect(() => {
     if (userId) {
@@ -121,7 +261,7 @@ function App() {
     searchText.trim() !== '' && projectBoards.length + teamBoards.length === 0
 
   return (
-    <AppShell boards={boards} boardId={boardId}>
+    <AppShell boards={boards} boardId={boardId} accountControls={accountControls}>
       <main id="main-content" className="boards-page" tabIndex={-1}>
         {(!boardId || isCreatingTeam || isCreatingProject) && (
           <header>
@@ -187,7 +327,12 @@ function App() {
             </button>
           </section>
         ) : boardId ? (
-          <BoardPage key={boardId} boardId={boardId} onOpened={recordOpened} />
+          <BoardPage
+            key={JSON.stringify([userId, boardId])}
+            boardId={boardId}
+            userId={userId}
+            onOpened={recordOpened}
+          />
         ) : (
           <>
             <form

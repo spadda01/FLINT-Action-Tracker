@@ -46,6 +46,7 @@ let archivedItems: {
 let fetchMock: ReturnType<typeof vi.fn>
 
 beforeEach(() => {
+  localStorage.clear()
   items = structuredClone(seed)
   sections = [
     { id: 's1', name: 'Procurement' },
@@ -183,7 +184,7 @@ beforeEach(() => {
 })
 
 async function openWorkspace() {
-  render(<BoardWorkspace boardId="project-1" />)
+  render(<BoardWorkspace userId="user-1" boardId="project-1" />)
   await screen.findByRole('button', {
     name: 'Edit title for Confirm equipment',
   })
@@ -194,6 +195,84 @@ function itemRow(title = 'Confirm equipment') {
     .getByRole('button', { name: `Edit title for ${title}` })
     .closest('tr')!
 }
+
+test.each(['project-1', 'team-1'])(
+  'remembers keyboard-operated section choices for each user and board on %s',
+  async (boardId) => {
+    const user = userEvent.setup()
+    async function open(userId: string, id = boardId) {
+      const view = render(<BoardWorkspace userId={userId} boardId={id} />)
+      const toggle = await screen.findByRole('button', { name: 'Procurement' })
+      return { ...view, toggle }
+    }
+
+    const original = await open('user-1')
+    expect(original.toggle).toHaveAccessibleDescription('1 of 1 item · 1 flagged for attention')
+    original.toggle.focus()
+    await user.keyboard('{Enter}')
+    expect(original.toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(original.toggle).toHaveFocus()
+    expect(screen.queryByRole('table', { name: 'Procurement action items' })).toBeNull()
+    expect(screen.getByRole('table', { name: 'Coordination action items' })).toBeVisible()
+    original.unmount()
+
+    const otherUser = await open('user-2')
+    expect(otherUser.toggle).toHaveAttribute('aria-expanded', 'true')
+    otherUser.unmount()
+
+    const otherBoard = await open('user-1', boardId === 'project-1' ? 'team-1' : 'project-1')
+    expect(otherBoard.toggle).toHaveAttribute('aria-expanded', 'true')
+    otherBoard.unmount()
+
+    const reopened = await open('user-1')
+    expect(reopened.toggle).toHaveAttribute('aria-expanded', 'false')
+    reopened.toggle.focus()
+    await user.keyboard(' ')
+    expect(reopened.toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('table', { name: 'Procurement action items' })).toBeVisible()
+    reopened.unmount()
+
+    const expanded = await open('user-1')
+    expect(expanded.toggle).toHaveAttribute('aria-expanded', 'true')
+  },
+)
+
+test('keeps toggles usable when browser storage fails and clears the warning after a save', async () => {
+  const user = userEvent.setup()
+  vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+    throw new Error('Storage is blocked')
+  })
+  const save = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+    throw new Error('Storage is full')
+  })
+  await openWorkspace()
+  const toggle = screen.getByRole('button', { name: 'Procurement' })
+  expect(toggle).toHaveAttribute('aria-expanded', 'true')
+  await user.click(toggle)
+  expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  expect(screen.getByText(/Section preferences could not be saved/)).toHaveAttribute('role', 'status')
+  save.mockRestore()
+  await user.click(toggle)
+  expect(toggle).toHaveAttribute('aria-expanded', 'true')
+  expect(screen.queryByText(/Section preferences could not be saved/)).toBeNull()
+})
+
+test('restores section preferences after a failed workspace load is retried', async () => {
+  const user = userEvent.setup()
+  const view = render(<BoardWorkspace userId="user-1" boardId="project-1" />)
+  await screen.findByRole('button', { name: 'Procurement' })
+  await user.click(screen.getByRole('button', { name: 'Procurement' }))
+  view.unmount()
+
+  fetchMock.mockResolvedValueOnce(Response.json({}, { status: 503 }))
+  render(<BoardWorkspace userId="user-1" boardId="project-1" />)
+  expect(screen.getByRole('status')).toHaveTextContent('Loading action items')
+  expect(await screen.findByRole('alert')).toHaveTextContent('Unable to load this board workspace')
+  expect(screen.queryByRole('button', { name: 'Procurement' })).toBeNull()
+  await user.click(screen.getByRole('button', { name: 'Retry loading workspace' }))
+  expect(await screen.findByRole('button', { name: 'Procurement' }))
+    .toHaveAttribute('aria-expanded', 'false')
+})
 
 test('uses section tables, searches owners, and applies and clears filters', async () => {
   const user = userEvent.setup()
@@ -612,7 +691,7 @@ test.each(['project-1', 'team-1'])(
     )
     sections.push({ id: 's3', name: 'Empty section' })
     const user = userEvent.setup()
-    render(<BoardWorkspace boardId={boardId} />)
+    render(<BoardWorkspace userId="user-1" boardId={boardId} />)
     const procurement = await screen.findByRole('region', {
       name: 'Procurement section',
     })
@@ -621,6 +700,12 @@ test.each(['project-1', 'team-1'])(
     })
     expect(within(procurement).getByText('3 of 3 items')).toBeInTheDocument()
     expect(within(coordination).getByText('1 of 1 item')).toBeInTheDocument()
+    expect(within(procurement).getByText('1 flagged for attention')).toBeInTheDocument()
+    expect(within(coordination).getByText('0 flagged for attention')).toBeInTheDocument()
+    expect(
+      within(screen.getByRole('region', { name: 'Empty section section' }))
+        .getByText('0 flagged for attention'),
+    ).toBeInTheDocument()
     expect(
       within(
         screen.getByRole('region', { name: 'Empty section section' }),

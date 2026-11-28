@@ -82,7 +82,7 @@ beforeEach(() => {
 })
 
 async function openWorkspace() {
-  render(<BoardWorkspace boardId="project-1" />)
+  render(<BoardWorkspace userId="user-1" boardId="project-1" />)
   await screen.findByRole('button', { name: 'Edit title for Confirm equipment' })
 }
 

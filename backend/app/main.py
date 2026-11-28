@@ -1,8 +1,8 @@
-import os
 from datetime import datetime, timezone
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 
+from app.api.auth import get_current_user_id, require_mock_mode, router as auth_router
 from app.api.priorities import (
     router as priorities_router,
     priority_service as configured_priorities,
@@ -40,16 +40,24 @@ from app.services.status_service import (
 )
 from app.adapters.interfaces import CompanyAdapter
 from app.services.board_access import (
-    MOCK_EMPLOYEE_IDS,
     can_open_created_board,
     is_board_admin,
 )
 from app.services.item_history_service import item_history_service
 
 app = FastAPI(title="FLINT Action Tracker API")
+app.include_router(auth_router)
 app.include_router(priorities_router)
 app.include_router(workspace_router)
 services = create_services()
+
+
+@app.middleware("http")
+async def prevent_api_caching(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 def get_company_adapter() -> CompanyAdapter:
@@ -102,21 +110,6 @@ def validate_owner_organizations(
             )
 
 
-def require_mock_mode() -> None:
-    if os.getenv("APP_MODE") != "mock":
-        raise HTTPException(
-            status_code=503, detail="Backend integration is not configured."
-        )
-
-
-def get_current_user_id() -> str:
-    require_mock_mode()
-    user_id = os.getenv("MOCK_USER_ID", "user-1")
-    if user_id not in MOCK_EMPLOYEE_IDS:
-        raise HTTPException(status_code=401, detail="The mock user is not recognized.")
-    return user_id
-
-
 def get_board_repository() -> BoardRepository:
     require_mock_mode()
     return MockBoardRepository()
@@ -146,8 +139,7 @@ def has_board_access(
     return bool(saved_board and can_open_created_board(saved_board, user_id, service))
 
 
-# Keep team-board creation on the shared router, with mock identity checks.
-app.include_router(boards_router, dependencies=[Depends(get_current_user_id)])
+app.include_router(boards_router)
 app.include_router(item_status_router)
 app.include_router(employees_router)
 
@@ -433,26 +425,26 @@ def home():
     return {"message": "FLINT Action Tracker API is running"}
 
 
-@app.get("/api/projects", dependencies=[Depends(check_access)])
+@app.get("/api/projects", dependencies=[Depends(get_current_user_id), Depends(check_access)])
 def get_projects():
     return services["projects"].get_projects()
 
 
-@app.get("/api/employees", dependencies=[Depends(check_access)])
+@app.get("/api/employees", dependencies=[Depends(get_current_user_id), Depends(check_access)])
 def get_employees():
     return services["employees"].get_employees()
 
 
-@app.get("/api/groups")
+@app.get("/api/groups", dependencies=[Depends(get_current_user_id)])
 def get_groups():
     return services["groups"].get_groups()
 
 
-@app.get("/api/organizations", dependencies=[Depends(check_access)])
+@app.get("/api/organizations", dependencies=[Depends(get_current_user_id), Depends(check_access)])
 def get_organizations():
     return services["organizations"].get_organizations()
 
 
-@app.get("/api/companies", dependencies=[Depends(check_access)])
+@app.get("/api/companies", dependencies=[Depends(get_current_user_id), Depends(check_access)])
 def get_companies(companies: CompanyAdapter = Depends(get_company_adapter)):
     return companies.get_companies()

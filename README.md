@@ -1,5 +1,5 @@
 # FLINT-Action-Tracker
-Action Tracker for FLINT Design replaces weekly spreadsheets with shared project and department boards. it supports action items, multiple owners, priorities, targets, status tracking, change history, and meeting PDFs. Integrations for Palantir Foundry, Oracle Primavera Cloud, and Microsoft Entra ID.
+Action Tracker for FLINT Design replaces weekly spreadsheets with shared project and department boards. It supports action items, multiple owners, priorities, targets, status tracking, change history, and meeting PDFs.
 
 ## Run the integrated application
 
@@ -34,6 +34,14 @@ npm run dev
 
 Open the URL printed by Vite. The frontend proxies `/api` to `127.0.0.1:8000`.
 
+### Mock sign-in and session behavior
+
+Use **Mock sign in** to open the workspace as the server-selected synthetic account, and **Sign out** to revoke that browser's session. No identity fields or credentials are required. The mock provider supplies a fixed synthetic account and tenant, and the backend checks both before issuing an opaque session cookie. Board membership and admin checks still apply to that account.
+
+Run this mode on a local loopback address with synthetic data only. Sessions live in backend memory and expire after 15 minutes of inactivity or on backend restart. Workspace requests and keyboard or pointer interaction renew the session. Passive status checks do not renew it. Existing API tests use an isolated dependency override for `MOCK_USER_ID`. The running app requires a valid session cookie.
+
+Real Microsoft Entra ID integration remains pending configuration and authorization. Real tenant verification, token validation, and identity-provider sign-out require that integration.
+
 Project and team board creation use the same board repository and access checks. Project suggestions come from `/api/projects`; a project board may also be created without a linked project. Mock folder paths are not full web URLs, so enter a valid Egnyte folder URL. To reopen a newly created board, the current mock employee (`user-1` maps to `E001`) must be a selected member or belong to a selected group.
 
 Board and item data use in-memory mock storage and reset on backend restart. Recent-board history is stored per user in the browser. Dashboard manual ordering is not implemented in this integration.
@@ -46,16 +54,19 @@ Board and item data use in-memory mock storage and reset on backend restart. Rec
 - Use an item's Archive action for a mistaken entry and provide a reason. Archived item details and status history are retained; board members can review the archive record, while only the board admin can restore the item. There is no delete action.
 - Drag a row's move handle to another row or an empty section. Keyboard users can open the handle's Move dialog, or use Alt+Up/Down to reorder within a section. Clear search, filters and sorting before moving items so the saved order is unambiguous.
 - Add, rename and order sections with the controls beside their headings. Quick entry is available in each section and keeps focus after Enter.
+- Click a section name or focus it and press Enter or Space to collapse or expand it on project and team boards. The header shows matching items out of the section total and how many items in the whole section are flagged for attention, even when collapsed.
 - Filters apply attention/completed/priority filtering and target/priority sorting. Search and filter selections are temporary view state and reset on page refresh.
 - Team-board creation uses a keyboard-accessible modal styled from `Project_Board/` with the shared member adapters and save service.
 - Status Board and Meeting remain disabled until those views are implemented. The old standalone apps are retained as reference implementations.
 
 Item edits, item ordering and section changes survive browser refresh while the mock backend runs. Mock storage is still in memory and resets on backend restart. The earlier acceptance audit in `docs/testing/` records the specific commit it tested; it is a historical snapshot rather than certification of newer changes.
 
+Section collapse preferences are stored in the current browser by signed-in user, board and section ID. They survive reopening a board in that browser. If browser storage is unavailable, the controls still work and a warning appears when a preference cannot be saved.
+
 Validation:
 
 ```bash
-python -m pytest backend/tests -q
+python -m pytest backend/tests -q -o pythonpath=backend
 npm --prefix frontend test
 npm --prefix frontend run lint
 npm --prefix frontend run build
