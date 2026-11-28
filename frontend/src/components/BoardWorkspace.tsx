@@ -47,6 +47,8 @@ import BoardItemDialog from './BoardItemDialog'
 import BoardItemRow from './BoardItemRow'
 import { getOwnerType } from '../services/ownerTypes'
 import WorkspaceDialog from './WorkspaceDialog'
+import ColumnChooser from './ColumnChooser'
+import { COLUMN_LABELS, DEFAULT_COLUMNS, visibleColumns, type ColumnSetting } from './boardColumns'
 import './BoardWorkspace.css'
 
 type Filter = {
@@ -98,6 +100,14 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
     } | null>(null)
     const [dropBefore, setDropBefore] = useState<number | null>(null)
     const [notice, setNotice] = useState('')
+    const [columnSettings, setColumnSettings] = useState<readonly ColumnSetting[]>(DEFAULT_COLUMNS)
+    const [columnsBoardId, setColumnsBoardId] = useState(boardId)
+    // Column choices belong to one board, so another board starts from the default.
+    if (columnsBoardId !== boardId) {
+        setColumnsBoardId(boardId)
+        setColumnSettings(DEFAULT_COLUMNS)
+    }
+    const columns = visibleColumns(columnSettings)
     const [quickTitles, setQuickTitles] = useState<Record<string, string>>({})
     const [quickError, setQuickError] = useState<Record<string, string>>({})
     const [quickSaving, setQuickSaving] = useState<string[]>([])
@@ -524,6 +534,13 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
                 >
                     Archived items
                 </button>
+                <ColumnChooser
+                    columns={columnSettings}
+                    onApply={(next) => {
+                        setColumnSettings(next)
+                        setNotice('Columns updated.')
+                    }}
+                />
             </div>
             {orderingRestricted && (
                 <p className="max-view-notice">
@@ -715,18 +732,17 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
                                             <th scope="col" className="max-handle-cell">
                                                 <span className="visually-hidden">Move</span>
                                             </th>
-                                            <th scope="col">Item</th>
-                                            <th scope="col">Owners</th>
-                                            <th scope="col">Target</th>
-                                            <th scope="col">Status</th>
-                                            <th scope="col">Priority</th>
-                                            <th scope="col">Attention</th>
+                                            {columns.map((id) => (
+                                                <th key={id} scope="col" className={`max-col-${id}`}>
+                                                    {COLUMN_LABELS[id]}
+                                                </th>
+                                            ))}
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {rows.length === 0 && (
                                             <tr>
-                                                <td colSpan={7} className="max-empty">
+                                                <td colSpan={columns.length + 1} className="max-empty">
                                                     {sectionItems.length
                                                         ? 'No matching items'
                                                         : 'No items — drag an item here or add one below.'}
@@ -756,6 +772,7 @@ export default function BoardWorkspace({ boardId }: { boardId: string }) {
                                                 onMove={(sid, before) => move(item.id, sid, before)}
                                                 onDragEnd={() => setDropBefore(null)}
                                                 dropBefore={dropBefore === item.id}
+                                                columns={columns}
                                                 onDragOver={(event) => dragOver(event, item.id)}
                                                 onDrop={(event) => drop(event, section.id, item.id)}
                                             />

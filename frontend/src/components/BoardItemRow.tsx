@@ -1,4 +1,4 @@
-import { useRef, useState, type DragEvent, type FormEvent } from 'react'
+import { useRef, useState, type DragEvent, type FormEvent, type ReactNode } from 'react'
 import type { ActionItem } from '../services/actionItemService'
 import type { ItemInput, Section } from '../services/workspaceService'
 import type { PriorityLevel } from '../services/priorityService'
@@ -15,6 +15,7 @@ import {
 } from '../services/organizationService'
 import './OwnerChips.css'
 import ItemHistory from './ItemHistory'
+import { DEFAULT_COLUMNS, visibleColumns, type ColumnId } from './boardColumns'
 
 type Field = 'title' | 'owners' | 'target' | 'priority' | 'hardDate'
 type Update = Partial<Omit<ItemInput, 'section'>>
@@ -40,6 +41,8 @@ type Props = {
   onDrop: (event: DragEvent<HTMLTableRowElement>) => void
   onDragEnd: () => void
   dropBefore: boolean
+  // Visible columns in display order; defaults to every column.
+  columns?: readonly ColumnId[]
 }
 
 function FieldEditor({
@@ -373,6 +376,7 @@ export default function BoardItemRow({
   onDrop,
   onDragEnd,
   dropBefore,
+  columns = visibleColumns(DEFAULT_COLUMNS),
 }: Props) {
   const [editing, setEditing] = useState<Field | null>(null)
   const [moveOpen, setMoveOpen] = useState(false)
@@ -475,6 +479,186 @@ export default function BoardItemRow({
     }
   }
   const target = displayTarget(item.target)
+  // Cells keyed by column, rendered in the order the curator chose.
+  const cells: Record<ColumnId, ReactNode> = {
+    item: (
+      <td key="item" className="max-title-cell">
+        {cell('title', item.title)}
+        <button
+          type="button"
+          className="item-history-button"
+          aria-label={`View history for ${item.title}`}
+          aria-haspopup="dialog"
+          onClick={() => setHistoryOpen(true)}
+        >
+          History
+        </button>
+        {historyOpen && (
+          <WorkspaceDialog
+            title={`History: ${item.title}`}
+            onClose={() => setHistoryOpen(false)}
+          >
+            <ItemHistory boardId={boardId} itemId={item.id} />
+          </WorkspaceDialog>
+        )}
+        {!moveOpen && error && (
+          <p role="alert" className="max-error">
+            {error}
+          </p>
+        )}
+        <button
+          type="button"
+          aria-label={`Archive ${item.title}`}
+          onClick={() => {
+            setArchiveReason('')
+            setArchiveError('')
+            setArchiveOpen(true)
+          }}
+        >
+          Archive
+        </button>
+        {archiveOpen && (
+          <WorkspaceDialog
+            title={`Archive ${item.title}`}
+            busy={archiving}
+            onClose={() => setArchiveOpen(false)}
+          >
+            <form className="max-form" onSubmit={(event) => void archive(event)}>
+              <p>
+                This item and its status history will be retained and can be
+                restored by a board admin.
+              </p>
+              <label>
+                Reason for archiving
+                <textarea
+                  autoFocus
+                  required
+                  maxLength={2000}
+                  value={archiveReason}
+                  onChange={(event) => setArchiveReason(event.target.value)}
+                />
+              </label>
+              {archiveError && (
+                <p role="alert" className="max-error">
+                  {archiveError}
+                </p>
+              )}
+              <div className="max-dialog-actions">
+                <button
+                  type="button"
+                  disabled={archiving}
+                  onClick={() => setArchiveOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="max-primary"
+                  type="submit"
+                  disabled={archiving || !archiveReason.trim()}
+                >
+                  {archiving ? 'Archiving…' : 'Archive item'}
+                </button>
+              </div>
+            </form>
+          </WorkspaceDialog>
+        )}
+      </td>
+    ),
+    owners: (
+      <td key="owners">
+        {cell(
+          'owners',
+          item.owners.length
+            ? (
+                <span className="owner-chips">
+                  {item.owners.map((owner, index) => (
+                    <span
+                      key={index}
+                      className={`owner-chip${owner.isExternal ? ' owner-chip-external' : ''}`}
+                    >
+                      <OwnerTypeBadge owner={owner} />
+
+                      {owner.isExternal && owner.organizationId && (
+                        <span className="max-organization-name">
+                          {' — '}
+                          {organizationName(
+                            organizations.organizations,
+                            owner.organizationId,
+                          )}
+                        </span>
+                      )}
+
+                      {owner.employeeId &&
+                        inactiveEmployeeIds.has(owner.employeeId) && (
+                          <InactiveBadge />
+                        )}
+                    </span>
+                  ))}
+                </span>
+              )
+            : 'Assign owners',
+        )}
+      </td>
+    ),
+    target: (
+      <td key="target">
+        {cell(
+          'target',
+          <span className="max-target-text">
+            {target.value || 'Set target'}
+          </span>,
+        )}
+        {cell(
+          'hardDate',
+          item.hardDate ? (
+            <small>Hard date: {item.hardDate}</small>
+          ) : (
+            <small>+ Hard date</small>
+          ),
+        )}
+      </td>
+    ),
+    status: (
+      <td key="status">
+        <StatusChooser
+          itemTitle={item.title}
+          status={item.status}
+          statuses={statuses}
+          onChange={onStatus}
+        />
+      </td>
+    ),
+    priority: (
+      <td key="priority">
+        {cell(
+          'priority',
+          <span
+            className={`max-priority max-priority-${item.priority.toLowerCase()}`}
+          >
+            <span aria-hidden="true" />
+            {item.priority}
+          </span>,
+        )}
+      </td>
+    ),
+    attention: (
+      <td key="attention">
+        <input
+          className="max-attention"
+          type="checkbox"
+          checked={pendingAttention ?? item.attention}
+          disabled={savingAttention}
+          onChange={(e) => void attention(e.target.checked)}
+          aria-label={`Attention for ${item.title}`}
+        />
+        {retryAttention !== null && (
+          <button type="button" onClick={() => void attention(retryAttention)}>
+            Retry attention
+          </button>
+        )}
+      </td>
+    ),
+  }
   return (
     <tr
       className={[
@@ -601,171 +785,7 @@ export default function BoardItemRow({
                     </WorkspaceDialog>
                 )}
             </td>
-      <td className="max-title-cell">
-        {cell('title', item.title)}
-        <button
-          type="button"
-          className="item-history-button"
-          aria-label={`View history for ${item.title}`}
-          aria-haspopup="dialog"
-          onClick={() => setHistoryOpen(true)}
-        >
-          History
-        </button>
-        {historyOpen && (
-          <WorkspaceDialog
-            title={`History: ${item.title}`}
-            onClose={() => setHistoryOpen(false)}
-          >
-            <ItemHistory boardId={boardId} itemId={item.id} />
-          </WorkspaceDialog>
-        )}
-      </td>
-      <td>
-        {cell(
-          'owners',
-          item.owners.length
-            ? (
-                <span className="owner-chips">
-                  {item.owners.map((owner, index) => (
-                    <span
-                      key={index}
-                      className={`owner-chip${owner.isExternal ? ' owner-chip-external' : ''}`}
-                    >
-                      <OwnerTypeBadge owner={owner} />
-
-                      {owner.isExternal && owner.organizationId && (
-                        <span className="max-organization-name">
-                          {' — '}
-                          {organizationName(
-                            organizations.organizations,
-                            owner.organizationId,
-                          )}
-                        </span>
-                      )}
-
-                      {owner.employeeId &&
-                        inactiveEmployeeIds.has(owner.employeeId) && (
-                          <InactiveBadge />
-                        )}
-                    </span>
-                  ))}
-                </span>
-              )
-            : 'Assign owners',
-        )}
-      </td>
-      <td>
-        {cell(
-          'target',
-          <span className="max-target-text">
-            {target.value || 'Set target'}
-          </span>,
-        )}
-        {cell(
-          'hardDate',
-          item.hardDate ? (
-            <small>Hard date: {item.hardDate}</small>
-          ) : (
-            <small>+ Hard date</small>
-          ),
-        )}
-      </td>
-      <td>
-        <StatusChooser
-          itemTitle={item.title}
-          status={item.status}
-          statuses={statuses}
-          onChange={onStatus}
-        />
-      </td>
-      <td>
-        {cell(
-          'priority',
-          <span
-            className={`max-priority max-priority-${item.priority.toLowerCase()}`}
-          >
-            <span aria-hidden="true" />
-            {item.priority}
-          </span>,
-        )}
-      </td>
-      <td>
-        <input
-          className="max-attention"
-          type="checkbox"
-          checked={pendingAttention ?? item.attention}
-          disabled={savingAttention}
-          onChange={(e) => void attention(e.target.checked)}
-          aria-label={`Attention for ${item.title}`}
-        />
-        {!moveOpen && error && (
-          <p role="alert" className="max-error">
-            {error}
-          </p>
-        )}
-        {retryAttention !== null && (
-          <button type="button" onClick={() => void attention(retryAttention)}>
-            Retry attention
-          </button>
-        )}
-        <button
-          type="button"
-          aria-label={`Archive ${item.title}`}
-          onClick={() => {
-            setArchiveReason('')
-            setArchiveError('')
-            setArchiveOpen(true)
-          }}
-        >
-          Archive
-        </button>
-        {archiveOpen && (
-          <WorkspaceDialog
-            title={`Archive ${item.title}`}
-            busy={archiving}
-            onClose={() => setArchiveOpen(false)}
-          >
-            <form className="max-form" onSubmit={(event) => void archive(event)}>
-              <p>
-                This item and its status history will be retained and can be
-                restored by a board admin.
-              </p>
-              <label>
-                Reason for archiving
-                <textarea
-                  autoFocus
-                  required
-                  maxLength={2000}
-                  value={archiveReason}
-                  onChange={(event) => setArchiveReason(event.target.value)}
-                />
-              </label>
-              {archiveError && (
-                <p role="alert" className="max-error">
-                  {archiveError}
-                </p>
-              )}
-              <div className="max-dialog-actions">
-                <button
-                  type="button"
-                  disabled={archiving}
-                  onClick={() => setArchiveOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="max-primary"
-                  type="submit"
-                  disabled={archiving || !archiveReason.trim()}
-                >
-                  {archiving ? 'Archiving…' : 'Archive item'}
-                </button>
-              </div>
-            </form>
-          </WorkspaceDialog>
-        )}
-      </td>
+      {columns.map((id) => cells[id])}
     </tr>
   )
 }

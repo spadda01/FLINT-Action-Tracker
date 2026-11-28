@@ -127,22 +127,23 @@
   padding: 12px 8px;
   height: 40px;
 }
-.max-table th:nth-child(2) {
+/* Widths follow the column, not its position, so reordered columns keep their size. */
+.max-table th.max-col-item {
   width: 26%;
 }
-.max-table th:nth-child(3) {
+.max-table th.max-col-owners {
   width: 18%;
 }
-.max-table th:nth-child(4) {
+.max-table th.max-col-target {
   width: 18%;
 }
-.max-table th:nth-child(5) {
+.max-table th.max-col-status {
   width: 14%;
 }
-.max-table th:nth-child(6) {
+.max-table th.max-col-priority {
   width: 12%;
 }
-.max-table th:nth-child(7) {
+.max-table th.max-col-attention {
   width: 8%;
 }
 .max-table td {
@@ -611,4 +612,27 @@
 }
 .max-organization-name {
   color: #475569;
+}
+
+/* Column chooser */
+.max-column-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.max-column-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 0;
+  border-bottom: 1px solid #dce5eb;
+}
+.max-column-move {
+  display: flex;
+  gap: 4px;
+}
+.max-column-move button {
+  min-width: 36px;
+  padding: 4px 8px;
 }
